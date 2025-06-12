@@ -1,0 +1,47 @@
+{
+  "name": "voro",
+  "version": "0.1.0",
+  "description": "Mock smarter, not harder.",
+  "bin": {
+    "voro": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mock",
+    "api",
+    "typescript",
+    "zod",
+    "schema",
+    "faker",
+    "cli",
+    "developer-tools"
+  ],
+  "author": "Brandon Burning <bnburning3@gmail.com>",
+  "homepage": "https://github.com/caressingbeast/voro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caressingbeast/voro.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "ts-node": "^10.9.1"
+  }
+}
