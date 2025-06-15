@@ -17,9 +17,6 @@
 - **Local mock API server**  
   Spin up a local API that mimics your future backend — perfect for parallelizing frontend and backend work.
 
-- **Schema generation**  
-  Produce reusable runtime schemas that work across validation, documentation, and mock generation.
-
 - **No backend? No problem.**  
   Ideal for teams working in design systems, UI-first workflows, or prototyping without a backend in place.
 
