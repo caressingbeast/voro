@@ -5,7 +5,6 @@ import tsj from "ts-json-schema-generator";
 import { generateMockData } from "../faker.js";
 
 import type { JSONSchema, Options } from "../types";
-import { fstat } from "fs";
 
 export const mock = (opts: Options) => {
   if (!opts.name && !opts.type) {
@@ -18,12 +17,18 @@ export const mock = (opts: Options) => {
 
   if (opts.type) {
     const schema = tsj.createGenerator({ path: opts.file, type: opts.type }).createSchema(opts.type);
-    const data = generateMockData(schema as JSONSchema, opts.type);
+    const typedSchema = schema.definitions?.[opts.type];
 
-    if (opts.out) {
-      writeFileSync(opts.out, JSON.stringify(data), "utf-8");
+    if (typedSchema) {
+      const data = generateMockData(typedSchema as JSONSchema, schema.definitions as JSONSchema);
+
+      if (opts.out) {
+        writeFileSync(opts.out, JSON.stringify(data), "utf-8");
+      } else {
+        console.log(data);
+      }
     } else {
-      console.log(data);
+      console.error(`Error`);
     }
   }
 }

@@ -1,15 +1,11 @@
 export type JSONSchema = {
   $ref?: string;
-  definitions?: Record<string, JSONSchema>;
-  type?: string | string[];
+  additionalProperties?: boolean | JSONSchema;
+  enum?: (string | number | boolean | null)[];
+  items?: JSONSchema | JSONSchema[];
   properties?: Record<string, JSONSchema>;
   required?: string[];
-  additionalProperties?: boolean | JSONSchema;
-  items?: JSONSchema | JSONSchema[];
-  anyOf?: JSONSchema[];
-  oneOf?: JSONSchema[];
-  allOf?: JSONSchema[];
-  enum?: (string | number | boolean | null)[];
+  type?: string | string[];
   // Add other fields if needed
   [key: string]: any;
 };
@@ -22,7 +18,7 @@ export type Options = {
 };
 
 export type User = {
-  id: number;
+  id: string;
   name: string;
   email: string;
   profile: {
