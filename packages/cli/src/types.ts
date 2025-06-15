@@ -16,14 +16,3 @@ export type Options = {
   type?: string;
   out?: string;
 };
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  profile: {
-    username: string;
-    description: string;
-  };
-  status: "active" | "inactive";
-};

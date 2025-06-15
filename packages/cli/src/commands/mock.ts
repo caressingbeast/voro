@@ -1,18 +1,24 @@
 import chalk from "chalk";
 import { writeFileSync } from "fs";
 import tsj from "ts-json-schema-generator";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { pathToFileURL } from "url";
 
-import { generateMockData } from "../faker.js";
+import { generateMockDataFromTS, generateMockDataFromZod } from "../faker.js";
 
 import type { JSONSchema, Options } from "../types";
 
-export const mock = (opts: Options) => {
+export const mock = async (opts: Options) => {
   if (!opts.name && !opts.type) {
     console.error(`${chalk.red("You must specify an interface/type name or schema name.")}`);
   }
 
   if (opts.name) {
-    console.log("RUNNING A ZOD FILE", opts);
+    const fileUrl = pathToFileURL(opts.file).href;
+    const mod = await import(fileUrl);
+    const schema = mod[opts.name];
+    const generated = generateMockDataFromZod(schema);
+    console.log(generated);
   }
 
   if (opts.type) {
@@ -20,10 +26,11 @@ export const mock = (opts: Options) => {
     const typedSchema = schema.definitions?.[opts.type];
 
     if (typedSchema) {
-      const data = generateMockData(typedSchema as JSONSchema, schema.definitions as JSONSchema);
+      const data = generateMockDataFromTS(typedSchema as JSONSchema, schema.definitions as JSONSchema);
 
       if (opts.out) {
         writeFileSync(opts.out, JSON.stringify(data), "utf-8");
+        console.log()
       } else {
         console.log(data);
       }
