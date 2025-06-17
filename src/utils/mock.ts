@@ -20,7 +20,7 @@ export class TypeMocker {
 
     for (const [key, prop] of Object.entries(this.schema)) {
       if (prop.optional && Math.random() < 0.5) continue;
-      result[key] = this.mockProperty(prop);
+      result[key] = this.mockProperty(prop, key);
     }
 
     return result;
@@ -38,9 +38,18 @@ export class TypeMocker {
   }
 
   private mockFromMetadata(type: string, metadata: VoroMetadata): any {
+    if (metadata.value) return metadata.value;
+
     if (type === "string") {
+      if (metadata.format === "name") return faker.person.fullName();
+      if (metadata.format === "email") return faker.internet.email();
       if (metadata.format === "uuid") return faker.string.uuid();
       if (metadata.format === "paragraph") return faker.lorem.paragraph();
+      if (metadata.format === "address") return faker.location.streetAddress();
+      if (metadata.format === "city") return faker.location.city();
+      if (metadata.format === "state") return faker.location.state();
+      if (metadata.format === "postalCode") return faker.location.zipCode();
+      if (metadata.format === "country") return faker.location.country();
       if (metadata.date === "past") return faker.date.past().toISOString();
       if (metadata.date === "future") return faker.date.future().toISOString();
       if (metadata.date === "recent") return faker.date.recent().toISOString();
@@ -81,6 +90,7 @@ export class TypeMocker {
       if (/address/i.test(name)) return faker.location.streetAddress();
       if (/city/i.test(name)) return faker.location.city();
       if (/state/i.test(name)) return faker.location.state();
+      if (/zip/i.test(name)) return faker.location.zipCode();
       if (/country/i.test(name)) return faker.location.country();
       return faker.lorem.word(); // fallback string
     }

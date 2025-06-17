@@ -3,6 +3,7 @@ import { writeFile } from "fs/promises";
 
 import { TypeMocker } from "../utils/mock.js";
 import { TypeParser } from "../utils/tsParser.js";
+import chalk from "chalk";
 
 export const mockCommand = new Command("mock")
   .description("Generate mock data from TypeScript types or Zod schemas")
@@ -19,16 +20,19 @@ export const mockCommand = new Command("mock")
     try {
       const parser = new TypeParser(options.file);
       const schema = parser.parse(options.type);
-      const mockData = new TypeMocker(schema).mock();
+      const mock = new TypeMocker(schema).mock();
+      const mockData = JSON.stringify(mock, null, 2);
+
       if (options.output) {
         try {
-          await writeFile(options.output, JSON.stringify(mockData, null, 2), { encoding: 'utf-8' });
-          console.log(`Data written to ${options.output}`);
+          await writeFile(options.output, mockData, { encoding: 'utf-8' });
+          console.log(chalk.bold.green(`✔ "${options.output}" has been successfully created!`));
         } catch (error) {
           console.error(`Failed to write file: ${error}`);
         }
       } else {
-        console.log(JSON.stringify(mockData, null, 2));
+        console.log(mockData);
+        console.log(chalk.bold.green(`✔ "${options.type}" has been succesfully mocked!`));
       }
     } catch (err) {
       console.error("Error parsing file:", err);
