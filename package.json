@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsup ./src",
     "dev": "tsx src/cli.ts",
+    "prepare": "npm run build",
     "start": "node ./dist/cli.js",
     "test": "vitest"
   },
