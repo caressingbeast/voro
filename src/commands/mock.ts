@@ -24,11 +24,10 @@ export const mockCommand = new Command("mock")
     }
 
     try {
-      const name = options.schema ? options.schema : options.type;
+      const name = options.schema || options.type;
       const Parser = options.schema ? ZodParser : TypeParser;
       const p = new Parser(options.file);
       const schema = await p.parse(name);
-      console.log(schema);
       const mock = new TypeMocker(schema).mock();
       const mockData = JSON.stringify(mock, null, 2);
 
