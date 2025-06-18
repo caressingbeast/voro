@@ -33,6 +33,11 @@
 npm install -g voro
 ```
 
+Or use `npx` without installing globally:
+```bash
+npx voro mock -f ./src/ExampleInterface.ts -t ExampleInterface
+```
+
 ---
 
 ## Usage
