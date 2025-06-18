@@ -13,12 +13,12 @@ export const mockCommand = new Command("mock")
   .option("-o, --output <fileName>", "Output JSON file (optional)")
   .action(async (options) => {
     if (!options.file) {
-      console.error(chalk.bold.red("Missing required option: -f"));
+      console.error(chalk.bold.red("You must specify a file (-f)"));
       process.exit(1);
     }
 
-    if (!options.type) {
-      console.error(chalk.bold.red("Missing required option: -t"));
+    if (!options.schema && !options.type) {
+      console.error(chalk.bold.red("You must specify a type or schema name (-t or -s)"));
       process.exit(1);
     }
 

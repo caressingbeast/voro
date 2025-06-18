@@ -4,19 +4,32 @@ import { describe, expect, test } from "vitest";
 
 const CLI_PATH = path.join(__dirname, "../cli.ts");
 const FIXTURE_PATH = path.join(__dirname, "../examples/user.ts");
+const INVALID_PATH = path.join(__dirname, "../examples/invalid.ts");
 const SAVE_PATH = path.join(__dirname, "./testOutput.json");
 
 describe("mock", () => {
   test("errors when file option is missing", async () => {
-    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock  -f ${FIXTURE_PATH}`;
+    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -t User`;
     expect(exitCode).not.toEqual(0);
-    expect(stderr).toEqual("Missing required option: -t");
+    expect(stderr).toEqual("You must specify a file (-f)");
   });
 
   test("errors when type option is missing", async () => {
-    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock  -t User`;
+    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${FIXTURE_PATH}`;
     expect(exitCode).not.toEqual(0);
-    expect(stderr).toEqual("Missing required option: -f");
+    expect(stderr).toEqual("You must specify a type or schema name (-t or -s)");
+  });
+
+  test("passes error up for invalid file", async () => {
+    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${INVALID_PATH} -t User`;
+    expect(exitCode).not.toEqual(0);
+    expect(stderr).toContain(`Error parsing file => Error: ${INVALID_PATH}`);
+  });
+
+  test("passes error up for invalid type", async () => {
+    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${FIXTURE_PATH} -t InvalidUser`;
+    expect(exitCode).not.toEqual(0);
+    expect(stderr).toContain(`Error parsing file => Error: Type InvalidUser`);
   });
 
   test("outputs mock data to console if no -o option", async () => {
