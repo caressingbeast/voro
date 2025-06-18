@@ -12,8 +12,6 @@
     "removeComments": false
   },
   "include": [
-    "src",
-    "types",
-    "**/*.ts"
+    "src"
   ]
 }

@@ -2,9 +2,9 @@
   "name": "voro",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsup ./src",
     "dev": "tsx src/cli.ts",
     "start": "node ./dist/cli.js",
     "test": "vitest"
@@ -24,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^24.0.3",
     "execa": "^9.6.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
@@ -36,5 +37,10 @@
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
     "zod": "^3.25.67"
-  }
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ]
 }
