@@ -12,8 +12,44 @@ type PropertySpec = {
   metadata: Record<string, any>;
 };
 
+type GeneratorOpts = {
+  min?: number,
+  max?: number,
+  type?: string;
+};
+type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
+
 export class TypeMocker {
   constructor(private schema: Record<string, PropertySpec>) { }
+
+  private mockGenerators: GeneratorSpec = {
+    address: () => faker.location.streetAddress(),
+    boolean: () => faker.datatype.boolean(),
+    city: () => faker.location.city(),
+    country: () => faker.location.country(),
+    date: ({ type = "" }) => {
+      switch (type) {
+        case "future":
+          return faker.date.future().toISOString();
+        case "recent":
+          return faker.date.recent().toISOString()
+        default:
+          return faker.date.past().toISOString();
+      }
+    },
+    description: () => faker.lorem.paragraph(),
+    email: () => faker.internet.email(),
+    function: () => () => { },
+    name: () => faker.person.fullName(),
+    number: ({ min = 1, max = 100 }) => faker.number.int({ min, max }),
+    paragraph: () => faker.lorem.paragraph(),
+    state: () => faker.location.state(),
+    string: () => faker.lorem.word(),
+    url: () => faker.internet.url(),
+    username: () => faker.internet.username(),
+    uuid: () => faker.string.uuid(),
+    zip: () => faker.location.zipCode()
+  };
 
   mock() {
     const result: Record<string, any> = {};
@@ -38,88 +74,75 @@ export class TypeMocker {
   }
 
   private mockFromMetadata(type: string, metadata: VoroMetadata): any {
+    // Return an explicit value
     if (metadata.value) return metadata.value;
 
-    if (type === "string") {
-      if (metadata.format === "name") return faker.person.fullName();
-      if (metadata.format === "email") return faker.internet.email();
-      if (metadata.format === "uuid") return faker.string.uuid();
-      if (metadata.format === "paragraph") return faker.lorem.paragraph();
-      if (metadata.format === "address") return faker.location.streetAddress();
-      if (metadata.format === "city") return faker.location.city();
-      if (metadata.format === "state") return faker.location.state();
-      if (metadata.format === "postalCode") return faker.location.zipCode();
-      if (metadata.format === "country") return faker.location.country();
-      if (metadata.date === "past") return faker.date.past().toISOString();
-      if (metadata.date === "future") return faker.date.future().toISOString();
-      if (metadata.date === "recent") return faker.date.recent().toISOString();
+    // Check in generator map
+    if (type === "number") {
+      if (typeof metadata.range === "object") {
+        if (this.mockGenerators[type]) {
+          return this.mockGenerators[type]({ min: metadata.range.min, max: metadata.range.max });
+        }
+      }
     }
 
-    if (type === 'number') {
-      const range = metadata.range;
-      if (range && typeof range === "object" && "min" in range && "max" in range) {
-        return faker.number.int({ min: range.min, max: range.max });
+    if (type === "string") {
+      if (typeof metadata.date === "string") {
+        if (this.mockGenerators["date"]) {
+          return this.mockGenerators["date"]({ type: metadata.date });
+        }
+      }
+
+      if (typeof metadata.format === "string") {
+        console.log(metadata.format, type);
+        if (this.mockGenerators[metadata.format]) {
+          return this.mockGenerators[metadata.format]({});
+        }
       }
     }
 
     return undefined;
   }
 
-  private genericFallback(type: string): any {
-    switch (type) {
-      case 'string':
-        return faker.lorem.word();
-      case 'number':
-        return faker.number.int();
-      case 'boolean':
-        return faker.datatype.boolean();
-      default:
-        return null;
-    }
+  private getKeyFromName(name: string): string | null {
+    if (/address/i.test(name)) return "address";
+    if (/city/i.test(name)) return "city";
+    if (/country/i.test(name)) return "country";
+    if (/description/i.test(name)) return "paragraph";
+    if (/email/i.test(name)) return "email";
+    if (/id$/i.test(name)) return "uuid";
+    if (/name/i.test(name)) return "name";
+    if (/phone/i.test(name)) return "phone";
+    if (/state/i.test(name)) return "state";
+    if (/title/i.test(name)) return "title";
+    if (/zip/i.test(name)) return "zip";
+    if (/url/i.test(name)) return "url";
+    return null;
   }
 
   private getDefaultMockValue(name: string, type: string): any {
-    if (type === 'string') {
-      if (/id$/i.test(name)) return faker.string.uuid();
-      if (/email/i.test(name)) return faker.internet.email();
-      if (/name/i.test(name)) return faker.person.fullName();
-      if (/title/i.test(name)) return faker.lorem.words(3);
-      if (/description/i.test(name)) return faker.lorem.paragraph();
-      if (/url/i.test(name)) return faker.internet.url();
-      if (/phone/i.test(name)) return faker.phone.number();
-      if (/address/i.test(name)) return faker.location.streetAddress();
-      if (/city/i.test(name)) return faker.location.city();
-      if (/state/i.test(name)) return faker.location.state();
-      if (/zip/i.test(name)) return faker.location.zipCode();
-      if (/country/i.test(name)) return faker.location.country();
-      return faker.lorem.word(); // fallback string
-    }
+    if (type === "string") {
+      const key = this.getKeyFromName(name);
 
-    if (type === 'number') {
-      if (/age|count|total|amount|quantity|score/i.test(name)) {
-        return faker.number.int({ min: 1, max: 100 });
+      if (key && this.mockGenerators[key]) {
+        return this.mockGenerators[key]({});
       }
-      return faker.number.float({ min: 0, max: 1000 });
     }
 
-    if (type === 'boolean') {
-      return faker.datatype.boolean();
+    if (this.mockGenerators[type]) {
+      return this.mockGenerators[type]({});
     }
 
-    if (type === 'function') {
-      return () => { };
-    }
-
-    return null;
+    return undefined;
   }
 
 
   private mockProperty(prop: PropertySpec, name: string = ""): any {
-    const { type, metadata } = prop;
+    const { metadata, type } = prop;
 
     if (Array.isArray(type)) {
       if (type.length === 1) {
-        // It's an array type
+        // It's an array type (e.g. ["string"])
         const count = this.resolveArrayLength(metadata.length);
         return Array.from({ length: count }, () =>
           this.mockProperty({ type: type[0], optional: false, metadata: {} }, name)
@@ -131,7 +154,7 @@ export class TypeMocker {
     }
 
     // Handle nested objects
-    if (typeof type === 'object' && type !== null) {
+    if (typeof type === "object" && type !== null) {
       const result: Record<string, unknown> = {};
       for (const key in type) {
         const value = type[key as keyof typeof type];
@@ -141,19 +164,15 @@ export class TypeMocker {
     }
 
     // Handle functions
-    if (type === 'function') {
+    if (type === "function") {
       return () => { };
     }
 
-    // 🧠 Use metadata first
+    // Use metadata first
     const metaVal = this.mockFromMetadata(type, metadata);
     if (metaVal !== undefined) return metaVal;
 
-    // 🤖 Fallback to smart default
-    const defaultVal = this.getDefaultMockValue(name, type);
-    if (defaultVal !== null) return defaultVal;
-
-    // 🫣 Absolute fallback
-    return this.genericFallback(type);
+    // Fallback to smart default
+    return this.getDefaultMockValue(name, type);
   }
 }

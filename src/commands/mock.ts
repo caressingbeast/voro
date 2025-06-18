@@ -28,14 +28,14 @@ export const mockCommand = new Command("mock")
           await writeFile(options.output, mockData, { encoding: 'utf-8' });
           console.log(chalk.bold.green(`✔ "${options.output}" has been successfully created!`));
         } catch (error) {
-          console.error(`Failed to write file: ${error}`);
+          console.error(chalk.bold.red(`✖ Failed to write file: ${error}`));
         }
       } else {
         console.log(mockData);
         console.log(chalk.bold.green(`✔ "${options.type}" has been succesfully mocked!`));
       }
-    } catch (err) {
-      console.error("Error parsing file:", err);
+    } catch (error) {
+      console.error(chalk.bold.red(`✖ Error parsing file: ${error}`));
       process.exit(1);
     }
   });
