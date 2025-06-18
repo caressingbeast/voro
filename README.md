@@ -40,11 +40,12 @@ npm install -g voro
 Generate mock data from a TypeScript type:
 
 ```bash
-voro mock -f path/to/type.ts -t YourTypeName
+voro mock -f path/to/type.ts -t YourTypeName -o output.json
 ```
 
 - `-f` or `--file`: path to the TypeScript file containing the type
 - `-t` or `--type`: name of the type to generate mock data for
+- `-o` or `--output`: name of the file to save mock data to (optional)
 
 Example output:
 
