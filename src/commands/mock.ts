@@ -23,38 +23,28 @@ export const mockCommand = new Command("mock")
       process.exit(1);
     }
 
-    if (options.schema) {
-      try {
-        const parser = new ZodParser(options.file);
-        const schema = await parser.parse(options.schema);
-        console.log(JSON.stringify(schema, null, 2));
-      } catch (error) {
-        console.error(chalk.bold.red(`✖ Error generating mock data => ${error}`));
-        process.exit(1);
-      }
-    }
+    try {
+      const name = options.schema ? options.schema : options.type;
+      const Parser = options.schema ? ZodParser : TypeParser;
+      const p = new Parser(options.file);
+      const schema = await p.parse(name);
+      console.log(schema);
+      const mock = new TypeMocker(schema).mock();
+      const mockData = JSON.stringify(mock, null, 2);
 
-    if (options.type) {
-      try {
-        const parser = new TypeParser(options.file);
-        const schema = parser.parse(options.type);
-        const mock = new TypeMocker(schema).mock();
-        const mockData = JSON.stringify(mock, null, 2);
-
-        if (options.output) {
-          try {
-            await writeFile(options.output, mockData, { encoding: 'utf-8' });
-            console.log(chalk.bold.green(`✔ "${options.output}" has been successfully created!`));
-          } catch (error) {
-            console.error(chalk.bold.red(`✖ Failed to write file: ${error}`));
-          }
-        } else {
-          console.log(mockData);
-          console.log(chalk.bold.green(`✔ "${options.type}" has been successfully mocked!`));
+      if (options.output) {
+        try {
+          await writeFile(options.output, mockData, { encoding: 'utf-8' });
+          console.log(chalk.bold.green(`✔ "${options.output}" has been successfully created!`));
+        } catch (error) {
+          console.error(chalk.bold.red(`✖ Failed to write file: ${error}`));
         }
-      } catch (error) {
-        console.error(chalk.bold.red(`✖ Error generating mock data => ${error}`));
-        process.exit(1);
+      } else {
+        console.log(mockData);
+        console.log(chalk.bold.green(`✔ "${name}" has been successfully mocked!`));
       }
+    } catch (error) {
+      console.error(chalk.bold.red(`✖ Error generating mock data => ${error}`));
+      process.exit(1);
     }
   });

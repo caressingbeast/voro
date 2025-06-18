@@ -5,6 +5,7 @@ import { TypeParser } from "./tsParser";
 
 describe("TypeParser", () => {
   const typesDir = path.join(__dirname, "../examples");
+  const testFile = path.join(typesDir, "tests.ts");
 
   describe("parse()", () => {
     test("throws when the file is not found", () => {
@@ -13,12 +14,12 @@ describe("TypeParser", () => {
     });
 
     test("throws when the type is not found", () => {
-      const parser = new TypeParser(path.join(typesDir, "tests.ts"));
+      const parser = new TypeParser(testFile);
       expect(() => parser.parse("NotFoundUser")).toThrowError("Type NotFoundUser not found");
     });
 
     test("parses a basic type", () => {
-      const parser = new TypeParser(path.join(typesDir, "tests.ts"));
+      const parser = new TypeParser(testFile);
       const mocks = parser.parse("BasicUser");
 
       expect(mocks.id.type).toEqual("string");
@@ -30,7 +31,7 @@ describe("TypeParser", () => {
     });
 
     test("parses metadata", () => {
-      const parser = new TypeParser(path.join(typesDir, "tests.ts"));
+      const parser = new TypeParser(testFile);
       const mocks = parser.parse("MetadataUser");
 
       expect(mocks.id.metadata.format).toEqual("uuid");
@@ -41,7 +42,7 @@ describe("TypeParser", () => {
     });
 
     test("parses nested types", () => {
-      const parser = new TypeParser(path.join(typesDir, "tests.ts"));
+      const parser = new TypeParser(testFile);
       const mocks = parser.parse("NestedUser");
 
       const address = mocks.address.type;
