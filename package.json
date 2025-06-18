@@ -13,7 +13,16 @@
     "type": "git",
     "url": "git+https://github.com/caressingbeast/voro.git"
   },
-  "keywords": [],
+  "keywords": [
+    "mock",
+    "typescript",
+    "zod",
+    "schema",
+    "faker",
+    "cli",
+    "api",
+    "developer-tools"
+  ],
   "author": "Brandon Burning <brando@brando.wtf> (http://brandonburning.com)",
   "license": "MIT",
   "type": "module",
