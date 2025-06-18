@@ -7,12 +7,15 @@
 ## Features (Current)
 
 - Parses TypeScript files to extract a specific type or interface you specify
+- Parses schema files to extract a specific schema you specify
 - Supports complex TypeScript constructs like interfaces, type aliases, enums, unions, arrays, and nested types
+- Supports complex Zod constructs (see above)
 - Reads custom `@voro.*` metadata tags in JSDoc comments to control mock data generation, including:
   - `@voro.format` (e.g., uuid, paragraph)
   - `@voro.date` (e.g., past, future)
   - `@voro.range` (number ranges)
   - `@voro.length` (array lengths)
+  - `@voro.value` (a specific mock value)
 - Generates mock data in JSON format, either printed to the console or output to a file
 - Uses `faker` library for realistic data generation
 - Handles optional properties and recursive types with cycle protection
