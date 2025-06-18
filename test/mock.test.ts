@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { TypeMocker } from "./mock";
+import { TypeMocker } from "../src/utils/mock";
 
 function generateProperty(type: string[] | string, metadata = {}) {
   return { type: type, optional: false, metadata };

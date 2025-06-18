@@ -2,9 +2,9 @@ import path from "path";
 import { execa } from "execa";
 import { describe, expect, test } from "vitest";
 
-const CLI_PATH = path.join(__dirname, "../cli.ts");
-const FIXTURE_PATH = path.join(__dirname, "../examples/user.ts");
-const INVALID_PATH = path.join(__dirname, "../examples/invalid.ts");
+const CLI_PATH = path.join(__dirname, "../src/cli.ts");
+const FIXTURE_PATH = path.join(__dirname, "./examples/user.ts");
+const INVALID_PATH = path.join(__dirname, "./examples/invalid.ts");
 const SAVE_PATH = path.join(__dirname, "./testOutput.json");
 
 describe("mock", () => {

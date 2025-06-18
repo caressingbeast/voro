@@ -1,28 +1,26 @@
 import path from "path";
 import { describe, expect, test } from "vitest";
 
-import { ZodParser } from "./zodParser";
+import { TypeParser } from "../src/utils/tsParser";
 
-import { PropertySpec } from "../types";
-
-describe("ZodParser", () => {
-  const typesDir = path.join(__dirname, "../examples");
+describe("TypeParser", () => {
+  const typesDir = path.join(__dirname, "./examples");
   const testFile = path.join(typesDir, "tests.ts");
 
   describe("parse()", () => {
-    test("throws when the file is not found", async () => {
-      const parser = new ZodParser(path.join(typesDir, "notFound.ts"));
-      await expect(parser.parse("BasicUserSchema")).rejects.toThrowError("notFound.ts not found");
+    test("throws when the file is not found", () => {
+      const parser = new TypeParser(path.join(typesDir, "notFound.ts"));
+      expect(() => parser.parse("BasicUser")).toThrowError("notFound.ts not found");
     });
 
-    test("throws when the type is not found", async () => {
-      const parser = new ZodParser(testFile);
-      await expect(parser.parse("NotFoundUserSchema")).rejects.toThrowError(`Schema NotFoundUserSchema not found`);
+    test("throws when the type is not found", () => {
+      const parser = new TypeParser(testFile);
+      expect(() => parser.parse("NotFoundUser")).toThrowError("Type NotFoundUser not found");
     });
 
-    test("parses a basic type", async () => {
-      const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("BasicUserSchema");
+    test("parses a basic type", () => {
+      const parser = new TypeParser(testFile);
+      const mocks = parser.parse("BasicUser");
 
       expect(mocks.id.type).toEqual("string");
       expect(mocks.age.type).toEqual("number");
@@ -32,9 +30,9 @@ describe("ZodParser", () => {
       expect(mocks.tags.type).toEqual(["string"]);
     });
 
-    test("parses metadata", async () => {
-      const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("MetadataUserSchema");
+    test("parses metadata", () => {
+      const parser = new TypeParser(testFile);
+      const mocks = parser.parse("MetadataUser");
 
       expect(mocks.id.metadata.format).toEqual("uuid");
       expect(mocks.age.metadata.range).toEqual({ min: 18, max: 30 });
@@ -43,11 +41,11 @@ describe("ZodParser", () => {
       expect(mocks.createdAt.metadata.date).toEqual("past");
     });
 
-    test("parses nested types", async () => {
-      const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("NestedUserSchema");
+    test("parses nested types", () => {
+      const parser = new TypeParser(testFile);
+      const mocks = parser.parse("NestedUser");
 
-      const address = mocks.address.type as Record<string, PropertySpec>;
+      const address = mocks.address.type;
       expect(typeof address).toEqual("object");
       expect(typeof address.address1.type).toEqual("string");
       expect(typeof address.city.type).toEqual("string");
