@@ -1,8 +1,11 @@
 {
   "name": "voro",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
-  "main": "./dist/cli.js",
+  "main": "dist/cli.js",
+  "bin": {
+    "voro": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsup ./src",
     "dev": "tsx src/cli.ts",
