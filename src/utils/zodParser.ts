@@ -26,11 +26,11 @@ export class ZodParser {
 
     const schema = moduleExports[schemaName];
     if (!schema) {
-      throw new Error(`Schema "${schemaName}" not found`);
+      throw new Error(`Schema ${schemaName} not found`);
     }
 
     if (this.isZodObject(schema)) {
-      throw new Error(`Schema "${schemaName}" is not valid Zod schema`);
+      throw new Error(`Schema ${schemaName} is not valid Zod schema`);
     }
 
     return this.extractProperties(schema);

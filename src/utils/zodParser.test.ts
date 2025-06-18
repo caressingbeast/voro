@@ -17,7 +17,7 @@ describe("ZodParser", () => {
 
     test("throws when the type is not found", async () => {
       const parser = new ZodParser(testFile);
-      await expect(parser.parse("NotFoundUserSchema")).rejects.toThrowError(`Schema "NotFoundUserSchema" not found`);
+      await expect(parser.parse("NotFoundUserSchema")).rejects.toThrowError(`Schema NotFoundUserSchema not found`);
     });
 
     test("parses a basic type", async () => {

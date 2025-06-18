@@ -32,6 +32,12 @@ describe("mock", () => {
     expect(stderr).toContain(`Error generating mock data => Error: Type InvalidUser`);
   });
 
+  test("passes error up for invalid schema", async () => {
+    const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${FIXTURE_PATH} -s InvalidUser`;
+    expect(exitCode).not.toEqual(0);
+    expect(stderr).toContain(`Error generating mock data => Error: Schema InvalidUser`);
+  });
+
   test("outputs mock data to console if no -o option", async () => {
     const { exitCode, stdout } = await execa`tsx ${CLI_PATH} mock -f ${FIXTURE_PATH} -t User`;
     expect(exitCode).toEqual(0);
