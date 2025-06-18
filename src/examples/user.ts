@@ -18,7 +18,7 @@ export type User = {
   isAdmin: boolean;
   /** @voro.format name */
   name: string;
-  status: "active" | "pending";
+  status: "active" | "inactive" | "pending";
   mockFunction: () => {},
   /** @voro.date past */
   createdAt: string;

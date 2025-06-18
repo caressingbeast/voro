@@ -1,3 +1,5 @@
+import { z } from "zod/v4";
+
 export interface BasicUser {
   id: string;
   age: number;
@@ -36,3 +38,37 @@ export interface NestedUser {
   address: Address;
   name: string;
 }
+
+export const BasicUserSchema = z.object({
+  id: z.uuid({ version: "v4" }),
+  age: z.number(),
+  isAdmin: z.boolean(),
+  name: z.string(),
+  status: z.enum(["active", "inactive", "pending"]),
+  tags: z.array(z.string()),
+  createdAt: z.iso.datetime()
+});
+
+export const MetadataUserSchema = z.object({
+  id: z.uuid({ version: "v4" }),
+  age: z.number().min(18).max(30),
+  isAdmin: z.boolean(),
+  name: z.string().describe(`@voro.format name`),
+  status: z.enum(["active", "inactive", "pending"]),
+  tags: z.array(z.string()).describe(`@voro.length 3`),
+  createdAt: z.iso.datetime().describe(`@voro.date past`)
+});
+
+const AddressSchema = z.object({
+  address1: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zip: z.string(),
+  country: z.string()
+});
+
+export const NestedUserSchema = z.object({
+  id: z.uuid({ version: "v4" }),
+  address: AddressSchema,
+  name: z.string()
+});

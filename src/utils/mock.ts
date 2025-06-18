@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 
-import type { VoroMetadata } from '../types';
+import type { PropertySpec, VoroMetadata } from '../types';
 
 type GeneratorOpts = {
   min?: number,
@@ -9,16 +9,6 @@ type GeneratorOpts = {
 };
 
 type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
-
-type PropertySpec = {
-  type:
-  | string
-  | string[]
-  | Record<string, PropertySpec>
-  | { arrayOf: PropertySpec };
-  optional: boolean;
-  metadata: Record<string, any>;
-};
 
 export class TypeMocker {
   constructor(private schema: Record<string, PropertySpec>) { }
@@ -147,12 +137,16 @@ export class TypeMocker {
       if (type.length === 1) {
         // It's an array type (e.g. ["string"])
         const count = this.resolveArrayLength(metadata.length);
-        return Array.from({ length: count }, () =>
-          this.mockProperty({ type: type[0], optional: false, metadata: {} }, name)
-        );
+        return Array.from({ length: count }, () => {
+          const propType: PropertySpec =
+            typeof type[0] === "string"
+              ? { type: type[0], optional: false, metadata: {} }
+              : type[0]; // if it's already PropertySpec
+          return this.mockProperty(propType, name)
+        });
       } else {
         // It's a union
-        return faker.helpers.arrayElement(type);
+        return faker.helpers.arrayElement(type as string[]);
       }
     }
 

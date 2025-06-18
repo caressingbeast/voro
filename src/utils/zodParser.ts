@@ -2,14 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import { z, ZodObject, ZodTypeAny } from "zod";
-import { VoroMetadata } from "../types";
-import { ZodDefault, ZodOptional } from "zod/v4";
+import { ZodArray, ZodDefault, ZodOptional } from "zod/v4";
 
-type FieldInfo = {
-  type: string | string[] | Record<string, any>;
-  optional: boolean;
-  metadata: Record<string, VoroMetadata>;
-};
+import { PropertySpec, VoroMetadata } from "../types";
 
 export class ZodParser {
   constructor(private filePath: string) { }
@@ -41,8 +36,8 @@ export class ZodParser {
     return this.extractProperties(schema);
   }
 
-  private extractProperties(schema: ZodObject<any>): Record<string, FieldInfo> {
-    const result: Record<string, FieldInfo> = {};
+  private extractProperties(schema: ZodObject<any>): Record<string, PropertySpec> {
+    const result: Record<string, PropertySpec> = {};
     const shape = schema.shape;
 
     for (const key in shape) {
@@ -64,7 +59,7 @@ export class ZodParser {
     return "unknown";
   }
 
-  private parseField(schema: ZodTypeAny): FieldInfo {
+  private parseField(schema: ZodTypeAny): PropertySpec {
     let baseType = schema;
     let optional = false;
     let metadata: Record<string, any> = {};
@@ -93,7 +88,9 @@ export class ZodParser {
           }
         }
 
-        return { type: "string", optional, metadata };
+        const specificMeta = this.extractVoroMetadata(schema.description);
+
+        return { type: "string", optional, metadata: Object.keys(specificMeta).length ? specificMeta : metadata };
       }
 
       case "number":
@@ -147,6 +144,21 @@ export class ZodParser {
         return { type: "union", optional, metadata };
       }
 
+      case "array":
+      case z.ZodFirstPartyTypeKind.ZodArray: {
+        let arrayType = "string";
+
+        if (schema instanceof ZodArray) {
+          arrayType = this.getTypeName(schema.element);
+        }
+
+        return {
+          type: [arrayType],
+          optional,
+          metadata: this.extractVoroMetadata(schema.description)
+        };
+      }
+
       case "object":
       case z.ZodFirstPartyTypeKind.ZodObject: {
         return {
@@ -169,5 +181,32 @@ export class ZodParser {
       (schema as any)._def?.typeName === "object" &&
       typeof (schema as any).shape === "object"
     );
+  }
+
+  private extractVoroMetadata(description?: string): VoroMetadata {
+    if (!description) return {};
+
+    const tagRegex = /@voro\.(\w+)\s+(?:(?:"([^"]+)")|([^\s"]+)(?:\s+([^\s"]+))?)/g;
+    const meta: VoroMetadata = {};
+    let match: RegExpExecArray | null;
+
+    while ((match = tagRegex.exec(description)) !== null) {
+      const [, key, quotedValue, val1, val2] = match;
+
+      if (key === 'range') {
+        const min = Number(val1);
+        const max = Number(val2);
+        if (!isNaN(min) && !isNaN(max)) {
+          meta[key] = { min, max };
+        }
+      } else {
+        const value = quotedValue ?? val1 ?? "";
+        if (typeof value === 'string') {
+          meta[key] = value as string;
+        }
+      }
+    }
+
+    return meta;
   }
 }
