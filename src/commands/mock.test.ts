@@ -23,13 +23,13 @@ describe("mock", () => {
   test("passes error up for invalid file", async () => {
     const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${INVALID_PATH} -t User`;
     expect(exitCode).not.toEqual(0);
-    expect(stderr).toContain(`Error parsing file => Error: ${INVALID_PATH}`);
+    expect(stderr).toContain(`Error generating mock data => Error: ${INVALID_PATH}`);
   });
 
   test("passes error up for invalid type", async () => {
     const { exitCode, stderr } = await execa({ reject: false })`tsx ${CLI_PATH} mock -f ${FIXTURE_PATH} -t InvalidUser`;
     expect(exitCode).not.toEqual(0);
-    expect(stderr).toContain(`Error parsing file => Error: Type InvalidUser`);
+    expect(stderr).toContain(`Error generating mock data => Error: Type InvalidUser`);
   });
 
   test("outputs mock data to console if no -o option", async () => {
