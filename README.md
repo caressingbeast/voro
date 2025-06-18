@@ -53,6 +53,16 @@ voro mock -f path/to/type.ts -t YourTypeName -o output.json
 - `-t` or `--type`: name of the type to generate mock data for
 - `-o` or `--output`: name of the file to save mock data to (optional)
 
+Gnerate mock data from a Zod schema:
+
+```bash
+voro mock -f path/to/schema.ts -s YourSchemaName -o output.json
+```
+
+- `-f` or `--file`: path to the TypeScript file containing the schema
+- `-s` or `--schema`: name of the schema to generate mock data for
+- `-o` or `--output`: name of the file to save mock data to (optional)
+
 Example output:
 
 ```json
