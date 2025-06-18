@@ -23,6 +23,7 @@
   "homepage": "https://github.com/caressingbeast/voro#readme",
   "devDependencies": {
     "@types/node": "^24.0.3",
+    "execa": "^9.6.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
