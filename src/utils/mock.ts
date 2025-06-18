@@ -2,6 +2,14 @@ import { faker } from '@faker-js/faker';
 
 import type { VoroMetadata } from '../types';
 
+type GeneratorOpts = {
+  min?: number,
+  max?: number,
+  type?: string;
+};
+
+type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
+
 type PropertySpec = {
   type:
   | string
@@ -11,13 +19,6 @@ type PropertySpec = {
   optional: boolean;
   metadata: Record<string, any>;
 };
-
-type GeneratorOpts = {
-  min?: number,
-  max?: number,
-  type?: string;
-};
-type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
 
 export class TypeMocker {
   constructor(private schema: Record<string, PropertySpec>) { }
@@ -94,7 +95,6 @@ export class TypeMocker {
       }
 
       if (typeof metadata.format === "string") {
-        console.log(metadata.format, type);
         if (this.mockGenerators[metadata.format]) {
           return this.mockGenerators[metadata.format]({});
         }
@@ -107,7 +107,9 @@ export class TypeMocker {
   private getKeyFromName(name: string): string | null {
     if (/address/i.test(name)) return "address";
     if (/city/i.test(name)) return "city";
+    if (/created/i.test(name)) return "date";
     if (/country/i.test(name)) return "country";
+    if (/date/i.test(name)) return "date";
     if (/description/i.test(name)) return "paragraph";
     if (/email/i.test(name)) return "email";
     if (/id$/i.test(name)) return "uuid";
@@ -115,8 +117,9 @@ export class TypeMocker {
     if (/phone/i.test(name)) return "phone";
     if (/state/i.test(name)) return "state";
     if (/title/i.test(name)) return "title";
-    if (/zip/i.test(name)) return "zip";
+    if (/updated/i.test(name)) return "date";
     if (/url/i.test(name)) return "url";
+    if (/zip/i.test(name)) return "zip";
     return null;
   }
 
@@ -163,16 +166,10 @@ export class TypeMocker {
       return result;
     }
 
-    // Handle functions
-    if (type === "function") {
-      return () => { };
-    }
-
     // Use metadata first
     const metaVal = this.mockFromMetadata(type, metadata);
     if (metaVal !== undefined) return metaVal;
 
-    // Fallback to smart default
     return this.getDefaultMockValue(name, type);
   }
 }

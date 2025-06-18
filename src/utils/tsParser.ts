@@ -8,7 +8,7 @@ export class TypeParser {
 
   constructor(private filePath: string) {
     const configPath = ts.findConfigFile(filePath, ts.sys.fileExists, "tsconfig.json");
-    if (!configPath) throw new Error("Could not find tsconfig.json");
+    if (!configPath) throw new Error("tsconfig.json not found");
 
     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, "./");
@@ -19,7 +19,7 @@ export class TypeParser {
 
   public parse(typeName: string) {
     const source = this.program.getSourceFile(this.filePath);
-    if (!source) throw new Error("File not found");
+    if (!source) throw new Error(`${this.filePath} not found`);
 
     let targetNode: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | undefined;
 

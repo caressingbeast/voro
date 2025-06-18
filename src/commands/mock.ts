@@ -35,7 +35,7 @@ export const mockCommand = new Command("mock")
         console.log(chalk.bold.green(`✔ "${options.type}" has been succesfully mocked!`));
       }
     } catch (error) {
-      console.error(chalk.bold.red(`✖ Error parsing file: ${error}`));
+      console.error(chalk.bold.red(`✖ Error parsing file => ${error}`));
       process.exit(1);
     }
   });
