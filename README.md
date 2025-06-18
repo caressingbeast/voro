@@ -112,6 +112,7 @@ Running `voro mock` on `User` will generate realistic mock values respecting for
 The core of `voro` is:
 
 - **TypeScript parser**: Uses TypeScript Compiler API to parse and extract type information and custom metadata.
+- **Zod schema parser**: Uses Zod's internal structure to parse and extract type information and custom metadata.
 - **Mock data generator**: Recursively generates mock data from parsed schema using `faker`.
 - **CLI commands**: Currently supports `mock`; `serve` coming soon.
 
