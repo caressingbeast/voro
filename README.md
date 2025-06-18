@@ -81,6 +81,18 @@ export interface User {
 }
 ```
 
+Example Zod schema with metadata:
+
+```ts
+export const User = z.object({
+  id: z.uuid({ version: "v4" }),
+  name: z.string().describe(`@voro.format name`),
+  status: z.enum(["active", "inactive", "pending"]),
+  tags: z.array(z.string()).describe(`@voro.length 3`),
+  createdAt: z.iso.datetime().describe(`@voro.date past`)
+});
+```
+
 Running `voro mock` on `User` will generate realistic mock values respecting formats, enums, dates, and array lengths.
 
 ---
