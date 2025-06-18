@@ -40,11 +40,11 @@ npm install -g voro
 Generate mock data from a TypeScript type:
 
 ```bash
-voro mock -f path/to/types.ts -t YourTypeName
+voro mock -f path/to/type.ts -t YourTypeName
 ```
 
-- `-f` or `--file`: path to the TypeScript file containing the type/interface
-- `-t` or `--type`: name of the type or interface to generate mock data for
+- `-f` or `--file`: path to the TypeScript file containing the type
+- `-t` or `--type`: name of the type to generate mock data for
 
 Example output:
 
@@ -67,9 +67,10 @@ export interface User {
   id: string;
   name: string;
   status: "active" | "pending";
+  /** @voro.length 3 */
+  tags: string[];
   /** @voro.date past */
   createdAt: string;
-  tags: string[];
 }
 ```
 
