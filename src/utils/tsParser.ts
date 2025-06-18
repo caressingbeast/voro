@@ -3,6 +3,7 @@ import ts from "typescript";
 import type { VoroMetadata } from "../types";
 
 export class TypeParser {
+  private checker: ts.TypeChecker;
   private program: ts.Program;
 
   constructor(private filePath: string) {
@@ -13,6 +14,7 @@ export class TypeParser {
     const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, "./");
 
     this.program = ts.createProgram([filePath], parsed.options);
+    this.checker = this.program.getTypeChecker();
   }
 
   public parse(typeName: string) {
