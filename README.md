@@ -22,8 +22,8 @@
 ## Planned Features
 
 - `voro serve`: a Rust-based HTTP server that serves the generated mock data dynamically via API endpoints
-- Support for live reload and schema watching to regenerate mocks on schema changes
 - Advanced metadata and customization options for more sophisticated mocking scenarios
+- `voro clean`: remove `voro`-specific JSDoc comments
 
 ---
 
