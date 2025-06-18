@@ -1,9 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/**/*.ts", "!./src/examples/*", "!./ src/**/ *.test.ts"],
   bundle: false,
   clean: true,
+  format: ["cjs", "esm"],
   sourcemap: true,
-  target: "node16"
+  splitting: false,
+  target: "es2020",
 });
