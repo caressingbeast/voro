@@ -1,15 +1,16 @@
 {
   "name": "voro",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Mock smarter, not harder.",
+  "main": "src/cli.js",
   "bin": {
     "voro": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsup ./src",
+    "build": "tsup src",
     "dev": "tsx src/cli.ts",
     "prepare": "npm run build",
-    "start": "node ./dist/cli.js",
+    "start": "node dist/cli.js",
     "test": "vitest"
   },
   "repository": {
@@ -38,7 +39,6 @@
     "execa": "^9.6.0",
     "tsup": "^8.5.0",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
   "engines": {
@@ -48,6 +48,7 @@
     "@faker-js/faker": "^9.8.0",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
+    "typescript": "^5.8.3",
     "zod": "^3.25.67"
   },
   "files": [
