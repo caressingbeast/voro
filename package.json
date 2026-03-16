@@ -1,6 +1,6 @@
 {
   "name": "voro",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Mock smarter, not harder.",
   "main": "src/cli.js",
   "bin": {
@@ -36,6 +36,7 @@
   "homepage": "https://github.com/caressingbeast/voro#readme",
   "devDependencies": {
     "@types/node": "^24.0.3",
+    "@types/pluralize": "^0.0.32",
     "execa": "^9.6.0",
     "tsup": "^8.5.0",
     "tsx": "^4.20.3",
@@ -46,8 +47,12 @@
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
+    "@fastify/cors": "^10.0.0",
     "chalk": "^5.4.1",
+    "chokidar": "^3.5.4",
     "commander": "^14.0.0",
+    "fastify": "^5.8.2",
+    "pluralize": "^8.0.0",
     "typescript": "^5.8.3",
     "zod": "^3.25.67"
   },

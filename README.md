@@ -1,30 +1,31 @@
 # Voro
 
-`voro` is a CLI tool to generate mock data from TypeScript types or Zod schemas, designed to help developers quickly create realistic test data for frontend and backend development. It aims to eventually provide a fast Rust-based server to serve mocks over HTTP.
+A CLI tool for generating mock data from TypeScript types or Zod schemas. Perfect for creating realistic test data and running live development servers with mock APIs.
 
 ---
 
 ## Features (Current)
 
-- Parses TypeScript files to extract a specific type or interface you specify
-- Parses schema files to extract a specific schema you specify
-- Supports complex TypeScript constructs like interfaces, type aliases, enums, unions, arrays, and nested types
-- Supports complex Zod constructs (see above)
-- Reads custom `@voro.*` metadata tags in JSDoc comments to control mock data generation, including:
+- Parse TypeScript files to extract types and interfaces
+- Parse Zod schema files to extract schema definitions
+- Support complex TypeScript constructs: interfaces, type aliases, enums, unions, arrays, and nested types
+- Support complex Zod constructs with full schema validation
+- Read custom `@voro.*` metadata tags in JSDoc comments to control mock generation:
   - `@voro.format` (e.g., uuid, paragraph)
   - `@voro.date` (e.g., past, future)
   - `@voro.range` (number ranges)
   - `@voro.length` (array lengths)
   - `@voro.value` (a specific mock value)
-- Generates mock data in JSON format, either printed to the console or output to a file
-- Uses `faker` library for realistic data generation
-- Handles optional properties and recursive types with cycle protection
+- Generate mock data in JSON format to console or file
+- Use `faker` library for realistic data generation
+- Handle optional properties and recursive types with cycle protection
 
 ---
 
 ## Planned Features
 
-- `voro serve`: a Rust-based HTTP server that serves the generated mock data dynamically via API endpoints
+- Seed option for reproducible mock data generation (e.g., `--seed 123` for consistent results)
+- `voro share`: create cloud-hosted API endpoints for sharing mock APIs across teams or for development
 - Advanced metadata and customization options for more sophisticated mocking scenarios
 - `voro clean`: remove `voro`-specific JSDoc comments
 
@@ -46,6 +47,8 @@ npx voro mock -f ./src/ExampleInterface.ts -t ExampleInterface
 
 ## Usage
 
+### Generate Mock Data
+
 Generate mock data from a TypeScript type:
 
 ```bash
@@ -56,7 +59,7 @@ voro mock -f path/to/type.ts -t YourTypeName -o output.json
 - `-t` or `--type`: name of the type to generate mock data for
 - `-o` or `--output`: name of the file to save mock data to (optional)
 
-Gnerate mock data from a Zod schema:
+Generate mock data from a Zod schema:
 
 ```bash
 voro mock -f path/to/schema.ts -s YourSchemaName -o output.json
@@ -66,20 +69,47 @@ voro mock -f path/to/schema.ts -s YourSchemaName -o output.json
 - `-s` or `--schema`: name of the schema to generate mock data for
 - `-o` or `--output`: name of the file to save mock data to (optional)
 
-Example output:
+### Run Development Server
+
+Start a live development server that serves mock endpoints:
+
+```bash
+voro dev -f path/to/schema.ts -p 4010
+```
+
+- `-f` or `--file`: path to a single schema file (TypeScript or Zod)
+- `-d` or `--dir`: path to a directory containing schema files
+- `-p` or `--port`: port to listen on (default: 4010)
+
+The server automatically:
+- Creates RESTful endpoints by pluralizing schema names (e.g., `User` → `/users`)
+- Supports `GET /resource` for lists and `GET /resource/:id` for individual items
+- Enables CORS for browser-based development
+- Hot reloads when schema files change
+- Returns JSON responses with realistic mock data
+
+Example endpoints for a `User` schema:
+- `GET /` - lists all available endpoints
+- `GET /users` - returns array of user objects
+- `GET /users/123` - returns single user with id=123
+- `GET /users?count=10` - returns 10 user objects
+
+Example output from `GET /`:
 
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "name": "John Doe",
-  "status": "active",
-  "createdAt": "2022-01-01T12:00:00Z"
+  "endpoints": [
+    {"list": "/users", "item": "/users/:id"},
+    {"list": "/posts", "item": "/posts/:id"}
+  ]
 }
 ```
 
 ---
 
-Example TypeScript schema with metadata:
+## Schema Examples
+
+### TypeScript Schema with Metadata
 
 ```ts
 export interface User {
@@ -94,7 +124,7 @@ export interface User {
 }
 ```
 
-Example Zod schema with metadata:
+### Zod Schema with Metadata
 
 ```ts
 export const User = z.object({
@@ -114,10 +144,14 @@ Running `voro mock` on `User` will generate realistic mock values respecting for
 
 The core of `voro` is:
 
-- **TypeScript parser**: Uses TypeScript Compiler API to parse and extract type information and custom metadata.
-- **Zod schema parser**: Uses Zod's internal structure to parse and extract type information and custom metadata.
-- **Mock data generator**: Recursively generates mock data from parsed schema using `faker`.
-- **CLI commands**: Currently supports `mock`; `serve` coming soon.
+- **Schema loader**: Unified parsing system that extracts type information from both TypeScript types and Zod schemas
+- **TypeScript parser**: Uses TypeScript Compiler API to parse and extract type information and custom metadata
+- **Zod schema parser**: Uses Zod's internal structure to parse and extract type information and custom metadata
+- **Mock data generator**: Recursively generates mock data from parsed schema using `faker`
+- **CLI commands**:
+  - `mock`: Generate one-off mock data from schemas
+  - `dev`: Run a live HTTP server with hot-reload for serving mock APIs
+- **HTTP server**: Fastify-based server with CORS support and automatic endpoint generation
 
 ---
 

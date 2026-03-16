@@ -17,9 +17,11 @@ export class ZodParser {
     }
 
     const fileUrl = pathToFileURL(absPath).href;
+    // Force a fresh import during hot-reload by appending a cache-busting query.
+    const moduleUrl = `${fileUrl}?cacheBust=${Date.now()}`;
     let moduleExports: any;
     try {
-      moduleExports = await import(fileUrl);
+      moduleExports = await import(moduleUrl);
     } catch (err) {
       throw new Error(`Could not import file: ${err}`);
     }

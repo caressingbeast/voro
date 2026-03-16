@@ -3,8 +3,7 @@ import { Command } from "commander";
 import { writeFile } from "fs/promises";
 
 import { TypeMocker } from "../utils/mock.js";
-import { TypeParser } from "../utils/tsParser.js";
-import { ZodParser } from "../utils/zodParser.js";
+import { loadSchemasFromFile, type SchemaBundle } from "../utils/schemaLoader.js";
 
 export const mockCommand = new Command("mock")
   .description("Generate mock data from TypeScript types or Zod schemas")
@@ -25,10 +24,16 @@ export const mockCommand = new Command("mock")
 
     try {
       const name = options.schema || options.type;
-      const Parser = options.schema ? ZodParser : TypeParser;
-      const p = new Parser(options.file);
-      const schema = await p.parse(name);
-      const mock = new TypeMocker(schema).mock();
+      const kind: SchemaBundle['kind'] = options.schema ? "zod" : "ts";
+
+      const schemas = await loadSchemasFromFile(options.file);
+      const schemaBundle = schemas.find((s) => s.name === name && s.kind === kind);
+
+      if (!schemaBundle) {
+        throw new Error(`${kind === "zod" ? "Schema" : "Type"} ${name} not found`);
+      }
+
+      const mock = new TypeMocker(schemaBundle.schema).mock();
       const mockData = JSON.stringify(mock, null, 2);
 
       if (options.output) {
