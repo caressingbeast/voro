@@ -1,8 +1,32 @@
+// Shared utility to validate and fix PropertySpec for required fields
+export function validateAndFixPropertySpec(key: string, prop: PropertySpec): PropertySpec {
+  // Only fix required fields
+  if (prop.optional) return prop;
+  const { type, metadata } = prop;
+  if (type === "number") {
+    // Ensure a valid range
+    let range = metadata.range;
+    if (typeof range !== "object" || range === null || typeof (range as any).min !== "number" || typeof (range as any).max !== "number") {
+      range = { min: 1, max: 100 };
+    }
+    return { ...prop, metadata: { ...metadata, range } };
+  }
+  if (type === "string") {
+    // No-op for now, but could add format fallback
+    return prop;
+  }
+  if (type === "boolean") {
+    return prop;
+  }
+  // For arrays, objects, etc., recurse if needed (not implemented here)
+  return prop;
+}
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
 
 import fg from "fast-glob";
+import { ProgressBar } from "./progressBar.js";
 import ts from "typescript";
 import { TypeParser } from "./tsParser.js";
 import { ZodParser } from "./zodParser.js";
@@ -133,7 +157,7 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   }
 
   return Array.from(endpointMap.values());
-};
+}
 
 const SCHEMA_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 
@@ -144,12 +168,39 @@ const isSchemaFile = (filePath: string) => {
 
 const collectSchemaFiles = async (inputPath: string): Promise<string[]> => {
   // If the input is a glob pattern, resolve it immediately.
+  const defaultIgnores = [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.git/**",
+    "**/coverage/**",
+    "**/.next/**",
+    "**/out/**",
+    "**/.turbo/**",
+    "**/.cache/**",
+    "**/.vercel/**",
+    "**/.idea/**",
+    "**/.vscode/**",
+    "**/tmp/**",
+    "**/temp/**",
+    "**/logs/**",
+    "**/*.log",
+    "**/bower_components/**",
+    "**/.yarn/**",
+    "**/.pnp/**",
+    "**/.expo/**",
+    "**/.firebase/**",
+    "**/.sass-cache/**",
+    "**/jspm_packages/**",
+    "**/.parcel-cache/**",
+    "**/.eslintcache"
+  ];
   if (fg.isDynamicPattern(inputPath)) {
     const matches = await fg(inputPath, {
       dot: true,
       absolute: true,
       onlyFiles: true,
-      ignore: ["**/node_modules/**"],
+      ignore: defaultIgnores,
     });
     return matches.filter(isSchemaFile);
   }
@@ -167,13 +218,18 @@ const collectSchemaFiles = async (inputPath: string): Promise<string[]> => {
     dot: true,
     absolute: true,
     onlyFiles: true,
-    ignore: ["**/node_modules/**"],
+    ignore: defaultIgnores,
   });
 };
 
 export const loadSchemas = async (inputPath: string): Promise<SchemaBundle[]> => {
   const results: SchemaBundle[] = [];
   const files = await collectSchemaFiles(inputPath);
+
+  let progress: ProgressBar | null = null;
+  if (files.length > 1) {
+    progress = new ProgressBar(files.length, "Loading schemas");
+  }
 
   for (const filePath of files) {
     try {
@@ -182,6 +238,7 @@ export const loadSchemas = async (inputPath: string): Promise<SchemaBundle[]> =>
     } catch {
       // ignore non-schema files / parse errors
     }
+    if (progress) progress.tick();
   }
 
   return results;

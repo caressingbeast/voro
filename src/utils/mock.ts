@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import { z } from 'zod';
 
 import type { PropertySpec, VoroMetadata } from '../types';
+import { getKeyFromName, resolveArrayLength } from './propertySpecUtils.js';
 
 type GeneratorOpts = {
   min?: number,
@@ -69,16 +70,6 @@ export class TypeMocker {
     return result;
   }
 
-  private resolveArrayLength(input: unknown): number {
-    if (typeof input === "number") return input;
-
-    if (typeof input === "string") {
-      const num = parseInt(input, 10);
-      if (!isNaN(num)) return num;
-    }
-
-    return faker.number.int({ min: 1, max: 5 }); // fallback
-  }
 
   private mockFromMetadata(type: string, metadata: VoroMetadata): any {
     // Return an explicit value
@@ -110,39 +101,59 @@ export class TypeMocker {
     return undefined;
   }
 
-  private getKeyFromName(name: string): string | null {
-    if (/address/i.test(name)) return "address";
-    if (/city/i.test(name)) return "city";
-    if (/created/i.test(name)) return "date";
-    if (/country/i.test(name)) return "country";
-    if (/date/i.test(name)) return "date";
-    if (/description/i.test(name)) return "paragraph";
-    if (/email/i.test(name)) return "email";
-    if (/id$/i.test(name)) return "uuid";
-    if (/name/i.test(name)) return "name";
-    if (/phone/i.test(name)) return "phone";
-    if (/state/i.test(name)) return "state";
-    if (/title/i.test(name)) return "title";
-    if (/updated/i.test(name)) return "date";
-    if (/url/i.test(name)) return "url";
-    if (/zip/i.test(name)) return "zip";
-    return null;
-  }
 
   private getDefaultMockValue(name: string, type: string): any {
+    let value: any;
     if (type === "string") {
-      const key = this.getKeyFromName(name);
-
+      const key = getKeyFromName(name);
       if (key && this.mockGenerators[key]) {
-        return this.mockGenerators[key]({});
+        value = this.mockGenerators[key]({});
+        if (!this.isValidMockValue(value, type)) {
+          this.warnInvalidFakerData(name, type, value);
+          value = this.getFallbackValue(type);
+        }
+        return value;
       }
     }
 
     if (this.mockGenerators[type]) {
-      return this.mockGenerators[type]({});
+      value = this.mockGenerators[type]({});
+      if (!this.isValidMockValue(value, type)) {
+        this.warnInvalidFakerData(name, type, value);
+        value = this.getFallbackValue(type);
+      }
+      return value;
     }
 
-    return undefined;
+    return this.getFallbackValue(type);
+  }
+
+  private isValidMockValue(value: any, type: string): boolean {
+    if (value === undefined || value === null) return false;
+    switch (type) {
+      case "string": return typeof value === "string" && value.length > 0;
+      case "number": return typeof value === "number" && !isNaN(value);
+      case "boolean": return typeof value === "boolean";
+      default: return true;
+    }
+  }
+
+  private warnInvalidFakerData(name: string, type: string, value: any) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[voro:mock] Warning: Faker returned invalid data for property '[33m${name}[0m' (type: ${type}):`,
+      value,
+      "- using fallback value."
+    );
+  }
+
+  private getFallbackValue(type: string): any {
+    switch (type) {
+      case "string": return "example";
+      case "number": return 42;
+      case "boolean": return true;
+      default: return null;
+    }
   }
 
 
@@ -152,7 +163,7 @@ export class TypeMocker {
     if (Array.isArray(type)) {
       if (type.length === 1) {
         // It's an array type (e.g. ["string"])
-        const count = this.resolveArrayLength(metadata.length);
+        const count = resolveArrayLength(metadata.length);
         return Array.from({ length: count }, () => {
           const propType: PropertySpec =
             typeof type[0] === "string"
@@ -193,4 +204,5 @@ export class TypeMocker {
 
     return this.getDefaultMockValue(name, type);
   }
-}
+
+  }

@@ -1,3 +1,4 @@
+import { validateAndFixPropertySpec } from "./schemaLoader.js";
 import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
@@ -67,7 +68,8 @@ export class ZodParser {
     const shape = schema.shape;
 
     for (const key in shape) {
-      result[key] = this.parseField(shape[key]);
+      const raw = this.parseField(shape[key]);
+      result[key] = validateAndFixPropertySpec(key, raw);
     }
 
     return result;
@@ -153,6 +155,7 @@ export class ZodParser {
 
       case "number":
       case z.ZodFirstPartyTypeKind.ZodNumber: {
+        // Always provide a valid range for numbers
         if ("minValue" in schema && "maxValue" in schema) {
           metadata.range = {
             min: schema.minValue,
@@ -167,6 +170,11 @@ export class ZodParser {
           if (check.kind === "max") {
             metadata.range = { ...(metadata.range || {}), max: check.value };
           }
+        }
+
+        // Fallback: if no range, provide a default
+        if (!metadata.range) {
+          metadata.range = { min: 1, max: 100 };
         }
 
         return { type: "number", optional, metadata };
