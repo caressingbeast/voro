@@ -102,7 +102,7 @@ The server automatically:
 When the dev server is running, the OpenAPI 3.0 spec for all endpoints is available at:
 
 ```
-http://localhost:4010/openapi.json
+http://localhost:4010/docs
 ```
 
 You can use this with Swagger UI, Postman, or other tools to explore and test your mock API.
