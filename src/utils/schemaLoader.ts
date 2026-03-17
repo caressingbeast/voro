@@ -55,11 +55,15 @@ const parseZodFile = async (filePath: string): Promise<Record<string, Record<str
   const parser = new ZodParser(absPath);
 
   for (const exportName of Object.keys(module)) {
-    try {
-      const schema = await parser.parse(exportName);
-      result[exportName] = schema;
-    } catch {
-      // ignore exports that are not Zod schemas
+    const exported = module[exportName];
+    // Only try to parse if it's a Zod schema (object, union, etc.)
+    if (exported && typeof exported === "object" && exported._def && typeof exported._def === "object") {
+      try {
+        const schema = await parser.parse(exportName);
+        result[exportName] = schema;
+      } catch {
+        // ignore exports that are not Zod schemas
+      }
     }
   }
 
@@ -91,6 +95,7 @@ const getExportedTypeNames = (filePath: string): string[] => {
   const names: string[] = [];
 
   ts.forEachChild(source, (node) => {
+    // Only include exported interfaces and type aliases (not variables, functions, etc.)
     if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) && node.name) {
       const modifiers = ts.getCombinedModifierFlags(node);
       const isExported = Boolean(modifiers & ts.ModifierFlags.Export) ||
