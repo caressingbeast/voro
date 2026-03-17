@@ -315,7 +315,10 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
       result[handler.idKey] = id;
     }
 
-    return result;
+    return {
+      data: result,
+      meta: {}
+    };
   });
 };
 
