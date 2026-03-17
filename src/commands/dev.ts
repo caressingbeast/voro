@@ -244,8 +244,8 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
     const endpoints = Array.from(schemaHandlers.keys()).sort();
     return {
       endpoints: endpoints.map((e) => ({
-        list: `/${e}`,
-        item: `/${e}/:id`,
+        list: e.startsWith("/") || e.startsWith("*") ? e : `/${e}`,
+        item: e.startsWith("/") || e.startsWith("*") ? `${e}/:id` : `/${e}/:id`,
       })),
     };
   });
@@ -283,7 +283,7 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
   type ListRequest = FastifyRequest<{ Params: { endpoint: string }; Querystring: { limit?: string } }>;
   type ItemRequest = FastifyRequest<{ Params: { endpoint: string; id: string } }>;
 
-  server.get(":endpoint", async (request: ListRequest, reply: FastifyReply) => {
+  server.get("/:endpoint", async (request: ListRequest, reply: FastifyReply) => {
     const { endpoint } = request.params;
     // Case-insensitive lookup
     const handler = Array.from(schemaHandlers.entries()).find(([key]) => key.toLowerCase() === endpoint.toLowerCase())?.[1];
@@ -302,7 +302,7 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
     };
   });
 
-  server.get(":endpoint/:id", async (request: ItemRequest, reply: FastifyReply) => {
+  server.get("/:endpoint/:id", async (request: ItemRequest, reply: FastifyReply) => {
     const { endpoint, id } = request.params;
     // Case-insensitive lookup
     const handler = Array.from(schemaHandlers.entries()).find(([key]) => key.toLowerCase() === endpoint.toLowerCase())?.[1];
@@ -403,11 +403,7 @@ export const devCommand = new Command("dev")
     setupWatcher(target, async () => {
       console.log(chalk.yellow("Schema change detected, reloading..."));
       await reloadSchemas();
-      console.log(chalk.dim("Available endpoints:"));
-      for (const endpoint of Array.from(schemaHandlers.keys()).sort()) {
-        console.log(chalk.dim(`  GET /${endpoint}`));
-        console.log(chalk.dim(`  GET /${endpoint}/:id`));
-      }
+      console.log(chalk.bgGreen.black.bold("  Schemas refreshed successfully  "));
     });
 
     try {

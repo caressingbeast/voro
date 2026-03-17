@@ -88,11 +88,12 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   const bundles: SchemaBundle[] = [];
 
   // Try Zod parsing (runtime import)
+  let zodSchemas: Record<string, Record<string, PropertySpec>> = {};
   if ([".ts", ".tsx", ".js", ".mjs", ".cjs"].includes(ext)) {
     try {
-      const schemas = await parseZodFile(absPath);
-      for (const name of Object.keys(schemas)) {
-        bundles.push({ name, schema: schemas[name], kind: "zod", filePath: absPath });
+      zodSchemas = await parseZodFile(absPath);
+      for (const name of Object.keys(zodSchemas)) {
+        bundles.push({ name, schema: zodSchemas[name], kind: "zod", filePath: absPath });
       }
     } catch (err) {
       // ignore import errors
@@ -102,9 +103,12 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   // TS type parsing
   if ([".ts", ".tsx"].includes(ext)) {
     try {
-      const schemas = await parseTsFile(absPath);
-      for (const name of Object.keys(schemas)) {
-        bundles.push({ name, schema: schemas[name], kind: "ts", filePath: absPath });
+      const tsSchemas = await parseTsFile(absPath);
+      for (const name of Object.keys(tsSchemas)) {
+        // Deduplicate: skip TS if Zod schema with same name exists
+        if (!zodSchemas[name]) {
+          bundles.push({ name, schema: tsSchemas[name], kind: "ts", filePath: absPath });
+        }
       }
     } catch {
       // ignore parsing errors
