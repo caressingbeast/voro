@@ -7,8 +7,9 @@ import chalk from "chalk";
 import chokidar from "chokidar";
 import pluralize from "pluralize";
 import { Command } from "commander";
+import supportsHyperlinks from "supports-hyperlinks";
 
-import { TypeMocker } from "../utils/mock.js";
+import { TypeMocker, hashStringToNumber } from "../utils/mock.js";
 import { loadSchemas, type SchemaBundle } from "../utils/schemaLoader.js";
 import type { PropertySpec } from "../types.js";
 
@@ -24,24 +25,49 @@ fastify.setErrorHandler((error, request, reply) => {
   reply.status(500).send({ error: "Internal server error" });
 });
 
-const createMockGenerator = (schema: Record<string, PropertySpec>) => {
-  const mocker = new TypeMocker(schema);
-  return () => mocker.mock();
+// Custom hyperlink function to avoid duplication when hyperlinks are not supported
+const createHyperlink = (text: string, url: string): string => {
+  if (supportsHyperlinks.stdout) {
+    // OSC 8 hyperlink escape sequence
+    return `\u001B]8;;${url}\u001B\\${text}\u001B]8;;\u001B\\`;
+  }
+  return text;
+};
+
+const getSeedForId = (baseSeed: string | number | undefined, id: string | number) => {
+  const base = baseSeed !== undefined
+    ? typeof baseSeed === "string"
+      ? hashStringToNumber(baseSeed)
+      : baseSeed
+    : 0;
+  const idHash = hashStringToNumber(String(id));
+  return base ^ idHash;
+};
+
+const createMockGenerator = (
+  schema: Record<string, PropertySpec>,
+  baseSeed?: string | number
+) => {
+  return (id?: string | number) => {
+    const seed = id !== undefined ? getSeedForId(baseSeed, id) : baseSeed;
+    const mocker = new TypeMocker(schema, seed);
+    return mocker.mock();
+  };
 };
 
 type SchemaHandler = {
   schemaName: string;
-  generator: () => any;
+  generator: (id?: string | number) => any;
   idKey: string | null;
 };
 
 export const parseCount = (count?: string): number => {
   const parsed = Number(count);
   if (!parsed || parsed <= 0 || Number.isNaN(parsed)) return 5;
-  return parsed;
+  return Math.min(parsed, 100); // Max 100 items
 };
 
-export const createSchemaHandlers = (bundles: SchemaBundle[]) => {
+export const createSchemaHandlers = (bundles: SchemaBundle[], seed?: string | number) => {
   const handlers: Map<string, SchemaHandler> = new Map();
 
   for (const bundle of bundles) {
@@ -51,7 +77,7 @@ export const createSchemaHandlers = (bundles: SchemaBundle[]) => {
     // Prefer later bundles (e.g. later files) to allow overrides.
     handlers.set(endpoint, {
       schemaName: bundle.name,
-      generator: createMockGenerator(bundle.schema),
+      generator: createMockGenerator(bundle.schema, seed),
       idKey: hasId ? "id" : null,
     });
   }
@@ -94,7 +120,7 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
       return reply.status(404).send({ error: `Schema "${endpoint}" not found` });
     }
 
-    const result = handler.generator();
+    const result = handler.generator(id);
     if (handler.idKey && typeof result === "object" && result !== null) {
       result[handler.idKey] = id;
     }
@@ -135,6 +161,7 @@ export const devCommand = new Command("dev")
   .option("-f, --file <file>", "Single schema file (TypeScript or Zod)")
   .option("-d, --dir <dir>", "Directory containing schema files")
   .option("-p, --port <port>", "Port to listen on", "4010")
+  .option("-s, --seed <seed>", "Seed for reproducible mock data generation")
   .action(async (options) => {
     const target = options.file || options.dir;
     if (!target) {
@@ -147,8 +174,9 @@ export const devCommand = new Command("dev")
     const reloadSchemas = async () => {
       try {
         const schemas = await loadSchemas(target);
-        schemaHandlers = createSchemaHandlers(schemas);
-        console.log(chalk.green(`Loaded ${schemaHandlers.size} schema(s)`));
+        schemaHandlers = createSchemaHandlers(schemas, options.seed);
+        const schemaNames = Array.from(schemaHandlers.values()).map(h => h.schemaName).sort();
+        console.log(chalk.green(`Loaded ${schemaHandlers.size} schema(s): ${schemaNames.join(', ')}`));
       } catch (error) {
         console.error(chalk.red(`Failed to load schemas: ${error}`));
       }
@@ -174,8 +202,20 @@ export const devCommand = new Command("dev")
 
     try {
       await fastify.listen({ port });
-      console.log(chalk.green(`Mock server running at http://localhost:${port}`));
-      console.log(chalk.dim("Use /<resource>?count=N to generate multiple items and /<resource>/:id to fetch a single item."));
+      const url = `http://localhost:${port}`;
+      const displayText = `http://localhost:${port}`;
+
+      // Create clickable hyperlink if supported, otherwise just display text
+      const clickableUrl = createHyperlink(displayText, url);
+      console.log(`🚀 Mock server running at ${clickableUrl}`);
+
+      if (!supportsHyperlinks.stdout) {
+        console.log(chalk.dim(`   💡 Tip: Your terminal doesn't support hyperlinks. Copy and paste the URL above.`));
+      } else if (process.env.TERM_PROGRAM === 'vscode') {
+        console.log(chalk.dim(`   💡 Tip: Make sure "terminal.integrated.enableHyperlinks" is enabled in VS Code settings for clickable links.`));
+      }
+
+      console.log(chalk.dim("   Use /<resource>?count=N to generate multiple items and /<resource>/:id to fetch a single item."));
     } catch (err) {
       console.error(chalk.bold.red(`Failed to start server: ${err}`));
       process.exit(1);

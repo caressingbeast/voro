@@ -11,6 +11,7 @@ export const mockCommand = new Command("mock")
   .option("-t, --type <typeName>", "Name of TypeScript type")
   .option("-s, --schema <schemaName>", "Name of Zod schema")
   .option("-o, --output <fileName>", "Output JSON file (optional)")
+  .option("--seed <seed>", "Seed for reproducible mock data generation")
   .action(async (options) => {
     if (!options.file) {
       console.error(chalk.bold.red("You must specify a file (-f)"));
@@ -33,7 +34,7 @@ export const mockCommand = new Command("mock")
         throw new Error(`${kind === "zod" ? "Schema" : "Type"} ${name} not found`);
       }
 
-      const mock = new TypeMocker(schemaBundle.schema).mock();
+      const mock = new TypeMocker(schemaBundle.schema, options.seed).mock();
       const mockData = JSON.stringify(mock, null, 2);
 
       if (options.output) {

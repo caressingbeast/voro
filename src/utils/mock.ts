@@ -10,8 +10,23 @@ type GeneratorOpts = {
 
 type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
 
+export const hashStringToNumber = (input: string): number => {
+  // Simple deterministic hash (FNV-1a) to convert string seeds to a number.
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
 export class TypeMocker {
-  constructor(private schema: Record<string, PropertySpec>) { }
+  constructor(private schema: Record<string, PropertySpec>, private seed?: string | number) {
+    if (this.seed !== undefined) {
+      const seedNumber = typeof this.seed === "string" ? hashStringToNumber(this.seed) : this.seed;
+      faker.seed(seedNumber);
+    }
+  }
 
   private mockGenerators: GeneratorSpec = {
     address: () => faker.location.streetAddress(),

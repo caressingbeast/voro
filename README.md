@@ -58,6 +58,7 @@ voro mock -f path/to/type.ts -t YourTypeName -o output.json
 - `-f` or `--file`: path to the TypeScript file containing the type
 - `-t` or `--type`: name of the type to generate mock data for
 - `-o` or `--output`: name of the file to save mock data to (optional)
+- `--seed`: seed for reproducible mock data generation (optional)
 
 Generate mock data from a Zod schema:
 
@@ -80,6 +81,7 @@ voro dev -f path/to/schema.ts -p 4010
 - `-f` or `--file`: path to a single schema file (TypeScript or Zod)
 - `-d` or `--dir`: path to a directory containing schema files
 - `-p` or `--port`: port to listen on (default: 4010)
+- `--seed`: seed for deterministic mock data (the same `id` will always produce the same object)
 
 The server automatically:
 - Creates RESTful endpoints by pluralizing schema names (e.g., `User` → `/users`)
@@ -90,18 +92,53 @@ The server automatically:
 
 Example endpoints for a `User` schema:
 - `GET /` - lists all available endpoints
-- `GET /users` - returns array of user objects
-- `GET /users/123` - returns single user with id=123
+- `GET /users` - returns array of user objects (default 5, max 100)
 - `GET /users?count=10` - returns 10 user objects
+- `GET /users/123` - returns single user with id=123
 
-Example output from `GET /`:
+Example output from `GET /users?count=1`:
+
+```json
+[
+  {
+    "id": "e22f8169-c8cc-4326-a335-e4715f48822b",
+    "address": {
+      "address1": "2225 Grove Road",
+      "address2": "49504 Schamberger Junction",
+      "city": "East Buck",
+      "state": "Arizona",
+      "zip": "89124",
+      "country": "Turks and Caicos Islands"
+    },
+    "age": 71,
+    "email": "Savion.McGlynn@yahoo.com",
+    "isAdmin": false,
+    "name": "Casey Langosh I",
+    "status": "active",
+    "createdAt": "2026-01-17T18:31:23.811Z"
+  }
+]
+```
+
+Example output from `GET /users/123`:
 
 ```json
 {
-  "endpoints": [
-    {"list": "/users", "item": "/users/:id"},
-    {"list": "/posts", "item": "/posts/:id"}
-  ]
+  "id": "123",
+  "address": {
+    "address1": "92839 Mill Lane",
+    "address2": "175 Heathcote Rapid",
+    "city": "Columbus",
+    "state": "Arizona",
+    "zip": "28896-3736",
+    "country": "Mali"
+  },
+  "age": 66,
+  "email": "Jessy.Roob@yahoo.com",
+  "isAdmin": true,
+  "name": "Kari Fahey",
+  "status": "pending",
+  "createdAt": "2026-01-03T01:40:54.042Z"
 }
 ```
 
