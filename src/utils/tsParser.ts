@@ -52,8 +52,21 @@ export class TypeParser {
       if (ts.isPropertySignature(member) && member.type && ts.isIdentifier(member.name)) {
         const name = member.name.text;
         const optional = !!member.questionToken;
-        const metadata = this.extractVoroMetadata(member);
+        let metadata = this.extractVoroMetadata(member);
         const type = this.extractTypeNode(member.type, visited);
+
+        // Detect nullable: union containing null
+        let isNullable = false;
+        if (Array.isArray(type)) {
+          if (type.includes("null")) {
+            isNullable = true;
+          }
+        } else if (typeof type === "string" && type === "null") {
+          isNullable = true;
+        }
+        if (isNullable) {
+          metadata = { ...metadata, nullable: "true" };
+        }
 
         result[name] = { type, optional, metadata };
       }

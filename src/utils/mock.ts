@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import { z } from 'zod';
 
 import type { PropertySpec, VoroMetadata } from '../types';
-import { getKeyFromName, resolveArrayLength } from './propertySpecUtils.js';
+import { getKeyFromName, resolveArrayLength, resolveUnionOrNullable, isValidMockValue, warnInvalidFakerData, getFallbackValue } from './propertySpecUtils.js';
 
 type GeneratorOpts = {
   min?: number,
@@ -34,6 +34,7 @@ export class TypeMocker {
     address: () => faker.location.streetAddress(),
     boolean: () => faker.datatype.boolean(),
     city: () => faker.location.city(),
+    company: () => faker.company.name(),
     country: () => faker.location.country(),
     date: ({ type = "" }) => {
       switch (type) {
@@ -48,9 +49,11 @@ export class TypeMocker {
     description: () => faker.lorem.paragraph(),
     email: () => faker.internet.email(),
     function: () => () => { },
+    image: () => faker.image.url(),
     name: () => faker.person.fullName(),
     number: ({ min = 1, max = 100 }) => faker.number.int({ min, max }),
     paragraph: () => faker.lorem.paragraph(),
+    password: () => faker.internet.password(),
     state: () => faker.location.state(),
     string: () => faker.lorem.word(),
     url: () => faker.internet.url(),
@@ -108,9 +111,9 @@ export class TypeMocker {
       const key = getKeyFromName(name);
       if (key && this.mockGenerators[key]) {
         value = this.mockGenerators[key]({});
-        if (!this.isValidMockValue(value, type)) {
-          this.warnInvalidFakerData(name, type, value);
-          value = this.getFallbackValue(type);
+        if (!isValidMockValue(value, type)) {
+          warnInvalidFakerData(name, type, value);
+          value = getFallbackValue(type);
         }
         return value;
       }
@@ -118,47 +121,25 @@ export class TypeMocker {
 
     if (this.mockGenerators[type]) {
       value = this.mockGenerators[type]({});
-      if (!this.isValidMockValue(value, type)) {
-        this.warnInvalidFakerData(name, type, value);
-        value = this.getFallbackValue(type);
+      if (!isValidMockValue(value, type)) {
+        warnInvalidFakerData(name, type, value);
+        value = getFallbackValue(type);
       }
       return value;
     }
 
-    return this.getFallbackValue(type);
+    return getFallbackValue(type);
   }
 
-  private isValidMockValue(value: any, type: string): boolean {
-    if (value === undefined || value === null) return false;
-    switch (type) {
-      case "string": return typeof value === "string" && value.length > 0;
-      case "number": return typeof value === "number" && !isNaN(value);
-      case "boolean": return typeof value === "boolean";
-      default: return true;
-    }
-  }
-
-  private warnInvalidFakerData(name: string, type: string, value: any) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[voro:mock] Warning: Faker returned invalid data for property '[33m${name}[0m' (type: ${type}):`,
-      value,
-      "- using fallback value."
-    );
-  }
-
-  private getFallbackValue(type: string): any {
-    switch (type) {
-      case "string": return "example";
-      case "number": return 42;
-      case "boolean": return true;
-      default: return null;
-    }
-  }
 
 
   private mockProperty(prop: PropertySpec, name: string = ""): any {
     const { metadata, type } = prop;
+
+    // Handle nullable fields: randomly return null (50% chance), otherwise generate value
+    if (metadata && metadata.nullable === "true") {
+      if (Math.random() < 0.5) return null;
+    }
 
     if (Array.isArray(type)) {
       if (type.length === 1) {
@@ -172,20 +153,8 @@ export class TypeMocker {
           return this.mockProperty(propType, name);
         });
       }
-
-      const allPropertySpecs = type.every(
-        (t) => typeof t === "object" && t !== null && "type" in t
-      );
-
-      if (allPropertySpecs) {
-        // Treat as a tuple
-        return (type as PropertySpec[]).map((spec, idx) =>
-          this.mockProperty(spec, `${name}[${idx}]`)
-        );
-      }
-
-      // It's a union
-      return faker.helpers.arrayElement(type as string[]);
+      // Use shared union/nullable resolver
+      return resolveUnionOrNullable(type, name, metadata, (p, n) => this.mockProperty(p, n));
     }
 
     // Handle nested objects
