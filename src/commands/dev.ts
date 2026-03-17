@@ -30,7 +30,13 @@ fastify.setErrorHandler((error, request, reply) => {
 });
 
 // Helper to get endpoint name from schema name
-const getEndpointName = (schemaName: string) => pluralize(schemaName).toLowerCase();
+const getEndpointName = (rawName: string) => {
+  // Remove 'Schema' suffix (case-insensitive)
+  let name = rawName.replace(/schema$/i, "");
+  // Capitalize first letter for consistency
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+  return pluralize(name).toLowerCase();
+};
 
 // Helper to retry Zod validation up to 3 times
 const generateValidMock = (mocker: TypeMocker, zodSchema: z.ZodTypeAny, schemaName: string) => {
@@ -277,9 +283,10 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
   type ListRequest = FastifyRequest<{ Params: { endpoint: string }; Querystring: { limit?: string } }>;
   type ItemRequest = FastifyRequest<{ Params: { endpoint: string; id: string } }>;
 
-  server.get("/:endpoint", async (request: ListRequest, reply: FastifyReply) => {
+  server.get(":endpoint", async (request: ListRequest, reply: FastifyReply) => {
     const { endpoint } = request.params;
-    const handler = schemaHandlers.get(endpoint);
+    // Case-insensitive lookup
+    const handler = Array.from(schemaHandlers.entries()).find(([key]) => key.toLowerCase() === endpoint.toLowerCase())?.[1];
     if (!handler) {
       return reply.status(404).send({ error: `Schema "${endpoint}" not found` });
     }
@@ -295,9 +302,10 @@ const setupRoutes = (server: ReturnType<typeof Fastify>) => {
     };
   });
 
-  server.get("/:endpoint/:id", async (request: ItemRequest, reply: FastifyReply) => {
+  server.get(":endpoint/:id", async (request: ItemRequest, reply: FastifyReply) => {
     const { endpoint, id } = request.params;
-    const handler = schemaHandlers.get(endpoint);
+    // Case-insensitive lookup
+    const handler = Array.from(schemaHandlers.entries()).find(([key]) => key.toLowerCase() === endpoint.toLowerCase())?.[1];
     if (!handler) {
       return reply.status(404).send({ error: `Schema "${endpoint}" not found` });
     }
