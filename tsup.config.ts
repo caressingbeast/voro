@@ -1,6 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
+  entry: undefined,
   bundle: false,
   clean: true,
   format: ["cjs", "esm"],

@@ -2,11 +2,22 @@ import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import { z, ZodObject, ZodTypeAny } from "zod";
-import { ZodArray, ZodDefault, ZodOptional } from "zod/v4";
+import {
+  ZodArray,
+  ZodDefault,
+  ZodOptional,
+  ZodNullable,
+  ZodRecord,
+  ZodMap,
+  ZodTuple,
+  ZodDate,
+} from "zod/v4";
 
 import { PropertySpec, VoroMetadata } from "../types";
 
 export class ZodParser {
+  private sawRefinement = false;
+
   constructor(private filePath: string) { }
 
   async parse(schemaName: string) {
@@ -26,9 +37,22 @@ export class ZodParser {
       throw new Error(`Could not import file: ${err}`);
     }
 
-    const schema = moduleExports[schemaName];
+    let schema = moduleExports[schemaName];
     if (!schema) {
       throw new Error(`Schema ${schemaName} not found`);
+    }
+
+    this.sawRefinement = false;
+    // If the schema has refinements (e.g. superRefine), the exported schema will be
+    // wrapped in an effect/pipeline type. We only need the underlying shape for
+    // mocking purposes, so unwrap it.
+    schema = this.unwrapRefinements(schema);
+
+    if (this.sawRefinement) {
+      console.warn(
+        `[voro] Warning: schema "${schemaName}" in ${this.filePath} uses refinements (refine/superRefine/transform/etc.). ` +
+        "Generated mocks may not satisfy those runtime constraints."
+      );
     }
 
     if (this.isZodObject(schema)) {
@@ -49,6 +73,24 @@ export class ZodParser {
     return result;
   }
 
+  private unwrapRefinements(schema: any): any {
+    // Zod's `superRefine` / `refine` / `transform` create effect/pipeline wrappers
+    // around the underlying schema. For our purposes we only need the base shape.
+    const typeName = this.getTypeName(schema);
+
+    if (typeName === "ZodEffects") {
+      this.sawRefinement = true;
+      return this.unwrapRefinements(schema._def.schema);
+    }
+
+    if (typeName === "ZodPipeline") {
+      this.sawRefinement = true;
+      return this.unwrapRefinements(schema._def.in);
+    }
+
+    return schema;
+  }
+
   private getTypeName(schema: any): string {
     if (schema?._def?.type) {
       return schema._def.type;
@@ -62,13 +104,27 @@ export class ZodParser {
   }
 
   private parseField(schema: ZodTypeAny): PropertySpec {
-    let baseType = schema;
+    // Handle schemas wrapped by refinements (e.g. superRefine/refine).
+    const unwrapped = this.unwrapRefinements(schema);
+
+    let baseType = unwrapped;
     let optional = false;
     let metadata: Record<string, any> = {};
 
-    if (schema instanceof ZodDefault || schema instanceof ZodOptional) {
+    if (unwrapped instanceof ZodDefault || unwrapped instanceof ZodOptional) {
       optional = true;
-      baseType = schema._def.innerType;
+      baseType = unwrapped._def.innerType;
+    }
+
+    // Nullable should be represented as a nullable field.
+    if (baseType instanceof ZodNullable) {
+      const inner = baseType._def.innerType;
+      const innerParsed = this.parseField(inner as unknown as ZodTypeAny);
+      return {
+        ...innerParsed,
+        optional,
+        metadata: { ...innerParsed.metadata, nullable: "true" },
+      };
     }
 
     const def = baseType._def;
@@ -148,17 +204,72 @@ export class ZodParser {
 
       case "array":
       case z.ZodFirstPartyTypeKind.ZodArray: {
-        let arrayType = "string";
+        let arrayType: any = "string";
 
-        if (schema instanceof ZodArray) {
-          arrayType = this.getTypeName(schema.element);
+        if (baseType instanceof ZodArray) {
+          arrayType = this.getTypeName(baseType.element);
         }
 
         return {
           type: [arrayType],
           optional,
-          metadata: this.extractVoroMetadata(schema.description)
+          metadata: this.extractVoroMetadata(baseType.description)
         };
+      }
+
+      case "tuple":
+      case z.ZodFirstPartyTypeKind.ZodTuple: {
+        if (baseType instanceof ZodTuple) {
+          return {
+            type: baseType._def.items.map((item: any) => ({
+              type: this.getTypeName(item),
+              optional: false,
+              metadata: this.extractVoroMetadata(item.description),
+            })),
+            optional,
+            metadata: this.extractVoroMetadata(baseType.description),
+          };
+        }
+        return { type: "tuple", optional, metadata };
+      }
+
+      case "record":
+      case z.ZodFirstPartyTypeKind.ZodRecord: {
+        if (baseType instanceof ZodRecord) {
+          const valueSpec: PropertySpec = {
+            type: this.getTypeName(baseType._def.valueType),
+            optional: false,
+            metadata: this.extractVoroMetadata(baseType.description),
+          };
+          return {
+            type: { ["<key>"]: valueSpec },
+            optional,
+            metadata: this.extractVoroMetadata(baseType.description),
+          };
+        }
+        return { type: "record", optional, metadata };
+      }
+
+      case "map":
+      case z.ZodFirstPartyTypeKind.ZodMap: {
+        if (baseType instanceof ZodMap) {
+          const valueSpec: PropertySpec = {
+            type: this.getTypeName(baseType._def.valueType),
+            optional: false,
+            metadata: this.extractVoroMetadata(baseType.description),
+          };
+          return {
+            type: { ["<key>"]: valueSpec },
+            optional,
+            metadata: this.extractVoroMetadata(baseType.description),
+          };
+        }
+        return { type: "map", optional, metadata };
+      }
+
+      case "date":
+      case z.ZodFirstPartyTypeKind.ZodDate: {
+        return { type: "string", optional, metadata: { ...metadata, format: "date" } };
       }
 
       case "object":

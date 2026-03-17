@@ -19,12 +19,13 @@ A CLI tool for generating mock data from TypeScript types or Zod schemas. Perfec
 - Generate mock data in JSON format to console or file
 - Use `faker` library for realistic data generation
 - Handle optional properties and recursive types with cycle protection
+- Automatically generate and serve an OpenAPI (Swagger) spec for all mock endpoints
 
 ---
 
 ## Planned Features
 
-- `voro share`: create cloud-hosted API endpoints for sharing mock APIs across teams or for development
+- `voro cloud`: create cloud-hosted API endpoints for sharing mock APIs across teams or for development
 - Advanced metadata and customization options for more sophisticated mocking scenarios
 - `voro clean`: remove `voro`-specific JSDoc comments
 
@@ -39,7 +40,7 @@ npm install -g voro
 Or use `npx` without installing globally:
 
 ```bash
-npx voro mock -f ./src/ExampleInterface.ts -t ExampleInterface
+npx voro dev -f ./src/ExampleInterface.ts
 ```
 
 ---
@@ -71,7 +72,7 @@ voro mock -f path/to/schema.ts -s YourSchemaName -o output.json
 
 ### Run Development Server
 
-Start a live development server that serves mock endpoints:
+Start a live development server that serves mock endpoints and an OpenAPI spec:
 
 ```bash
 voro dev -f path/to/schema.ts -p 4010
@@ -79,8 +80,17 @@ voro dev -f path/to/schema.ts -p 4010
 
 - `-f` or `--file`: path to a single schema file (TypeScript or Zod)
 - `-d` or `--dir`: path to a directory containing schema files
+- `-g` or `--glob`: glob pattern matching schema files (e.g., `src/**/*.ts` to match all TypeScript files in `src` and subfolders)
 - `-p` or `--port`: port to listen on (default: 4010)
 - `-s` or `--seed`: seed for deterministic mock data (the same `id` will always produce the same object)
+
+**Example usage:**
+
+```bash
+voro dev -g "src/**/*.ts" -p 4010
+```
+
+This will load all TypeScript files under the `src` directory (including subdirectories) as potential schema files.
 
 The server automatically:
 - Creates RESTful endpoints by pluralizing schema names (e.g., `User` → `/users`)
@@ -89,34 +99,48 @@ The server automatically:
 - Hot reloads when schema files change
 - Returns JSON responses with realistic mock data
 
+When the dev server is running, the OpenAPI 3.0 spec for all endpoints is available at:
+
+```
+http://localhost:4010/openapi.json
+```
+
+You can use this with Swagger UI, Postman, or other tools to explore and test your mock API.
+
 Example endpoints for a `User` schema:
 - `GET /` - lists all available endpoints
 - `GET /users` - returns array of user objects (default 5, max 100)
-- `GET /users?count=10` - returns 10 user objects
+- `GET /users?limit=10` - returns 10 user objects
 - `GET /users/123` - returns single user with id=123
 
-Example output from `GET /users?count=1`:
+Example output from `GET /users?limit=1`:
 
 ```json
-[
-  {
-    "id": "e22f8169-c8cc-4326-a335-e4715f48822b",
-    "address": {
-      "address1": "2225 Grove Road",
-      "address2": "49504 Schamberger Junction",
-      "city": "East Buck",
-      "state": "Arizona",
-      "zip": "89124",
-      "country": "Turks and Caicos Islands"
-    },
-    "age": 71,
-    "email": "Savion.McGlynn@yahoo.com",
-    "isAdmin": false,
-    "name": "Casey Langosh I",
-    "status": "active",
-    "createdAt": "2026-01-17T18:31:23.811Z"
-  }
-]
+{
+  "data": [
+    {
+      "id": "e22f8169-c8cc-4326-a335-e4715f48822b",
+      "address": {
+        "address1": "2225 Grove Road",
+        "address2": "49504 Schamberger Junction",
+        "city": "East Buck",
+        "state": "Arizona",
+        "zip": "89124",
+        "country": "Turks and Caicos Islands"
+      },
+      "age": 71,
+      "email": "Savion.McGlynn@yahoo.com",
+      "isAdmin": false,
+      "name": "Casey Langosh I",
+      "status": "active",
+      "createdAt": "2026-01-17T18:31:23.811Z"
+    }
+  ],
+  "count": 1,
+  "limit": 1,
+  "offset": 0,
+  "total": 1
+}
 ```
 
 Example output from `GET /users/123`:

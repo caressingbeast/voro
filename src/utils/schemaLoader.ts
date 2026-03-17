@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
 
+import fg from "fast-glob";
 import ts from "typescript";
 import { TypeParser } from "./tsParser.js";
 import { ZodParser } from "./zodParser.js";
@@ -113,25 +114,52 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   return bundles;
 };
 
-export const loadSchemas = async (inputPath: string): Promise<SchemaBundle[]> => {
-  const fullPath = path.resolve(inputPath);
-  const stats = fs.statSync(fullPath);
-  const results: SchemaBundle[] = [];
+const SCHEMA_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 
-  if (stats.isFile()) {
-    return await loadSchemasFromFile(fullPath);
+const isSchemaFile = (filePath: string) => {
+  const ext = path.extname(filePath).toLowerCase();
+  return SCHEMA_FILE_EXTENSIONS.has(ext);
+};
+
+const collectSchemaFiles = async (inputPath: string): Promise<string[]> => {
+  // If the input is a glob pattern, resolve it immediately.
+  if (fg.isDynamicPattern(inputPath)) {
+    const matches = await fg(inputPath, {
+      dot: true,
+      absolute: true,
+      onlyFiles: true,
+      ignore: ["**/node_modules/**"],
+    });
+    return matches.filter(isSchemaFile);
   }
 
-  if (stats.isDirectory()) {
-    const entries = await fs.promises.readdir(fullPath);
-    for (const entry of entries) {
-      const entryPath = path.join(fullPath, entry);
-      try {
-        const bundles = await loadSchemasFromFile(entryPath);
-        results.push(...bundles);
-      } catch {
-        // ignore non-schema files
-      }
+  const fullPath = path.resolve(inputPath);
+  const stats = fs.statSync(fullPath);
+
+  if (stats.isFile()) {
+    return isSchemaFile(fullPath) ? [fullPath] : [];
+  }
+
+  // Directory: collect all files recursively (skip node_modules)
+  const pattern = `${fullPath.replace(/\\/g, "/")}/**/*.{ts,tsx,js,mjs,cjs}`;
+  return fg(pattern, {
+    dot: true,
+    absolute: true,
+    onlyFiles: true,
+    ignore: ["**/node_modules/**"],
+  });
+};
+
+export const loadSchemas = async (inputPath: string): Promise<SchemaBundle[]> => {
+  const results: SchemaBundle[] = [];
+  const files = await collectSchemaFiles(inputPath);
+
+  for (const filePath of files) {
+    try {
+      const bundles = await loadSchemasFromFile(filePath);
+      results.push(...bundles);
+    } catch {
+      // ignore non-schema files / parse errors
     }
   }
 

@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { z } from 'zod';
 
 import type { PropertySpec, VoroMetadata } from '../types';
 
@@ -157,12 +158,23 @@ export class TypeMocker {
             typeof type[0] === "string"
               ? { type: type[0], optional: false, metadata: {} }
               : type[0]; // if it's already PropertySpec
-          return this.mockProperty(propType, name)
+          return this.mockProperty(propType, name);
         });
-      } else {
-        // It's a union
-        return faker.helpers.arrayElement(type as string[]);
       }
+
+      const allPropertySpecs = type.every(
+        (t) => typeof t === "object" && t !== null && "type" in t
+      );
+
+      if (allPropertySpecs) {
+        // Treat as a tuple
+        return (type as PropertySpec[]).map((spec, idx) =>
+          this.mockProperty(spec, `${name}[${idx}]`)
+        );
+      }
+
+      // It's a union
+      return faker.helpers.arrayElement(type as string[]);
     }
 
     // Handle nested objects

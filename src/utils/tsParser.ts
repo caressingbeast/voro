@@ -68,6 +68,17 @@ export class TypeParser {
       if (visited.has(typeName)) return "any"; // recursion protection
       visited.add(typeName);
 
+      // Special-case common utility types
+      if (typeName === "Record" && typeNode.typeArguments?.length === 2) {
+        const keyType = this.extractTypeNode(typeNode.typeArguments[0], visited);
+        const valueType = this.extractTypeNode(typeNode.typeArguments[1], visited);
+        return { record: { key: keyType, value: valueType } };
+      }
+
+      if (typeName === "Partial" && typeNode.typeArguments?.[0]) {
+        return this.extractTypeNode(typeNode.typeArguments[0], visited);
+      }
+
       const decl = this.findTypeDeclaration(typeName);
       if (decl) {
         if (ts.isInterfaceDeclaration(decl)) {
@@ -91,8 +102,28 @@ export class TypeParser {
       });
     }
 
+    if (ts.isIntersectionTypeNode(typeNode)) {
+      const parts = typeNode.types.map((t) => this.extractTypeNode(t, visited));
+      // If all parts are objects, merge them
+      const merged = parts.reduce((acc, cur) => {
+        if (typeof acc === "object" && acc !== null && typeof cur === "object" && cur !== null) {
+          return { ...acc, ...cur };
+        }
+        return "intersection";
+      }, {} as any);
+      return merged;
+    }
+
     if (ts.isArrayTypeNode(typeNode)) {
       return [this.extractTypeNode(typeNode.elementType, visited)];
+    }
+
+    if (ts.isTupleTypeNode(typeNode)) {
+      return typeNode.elements.map((el) => this.extractTypeNode(el, visited));
+    }
+
+    if (ts.isTypeLiteralNode(typeNode)) {
+      return this.extractProperties(typeNode.members, visited);
     }
 
     if (ts.isFunctionTypeNode(typeNode)) {
