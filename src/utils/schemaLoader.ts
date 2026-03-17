@@ -6,6 +6,7 @@ import fg from "fast-glob";
 import ts from "typescript";
 import { TypeParser } from "./tsParser.js";
 import { ZodParser } from "./zodParser.js";
+import { getEndpointName } from "../commands/dev.js";
 import type { PropertySpec } from "../types.js";
 
 export type SchemaKind = "zod" | "ts";
@@ -92,30 +93,46 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   if ([".ts", ".tsx", ".js", ".mjs", ".cjs"].includes(ext)) {
     try {
       zodSchemas = await parseZodFile(absPath);
-      for (const name of Object.keys(zodSchemas)) {
-        bundles.push({ name, schema: zodSchemas[name], kind: "zod", filePath: absPath });
-      }
     } catch (err) {
       // ignore import errors
     }
   }
 
   // TS type parsing
+  let tsSchemas: Record<string, Record<string, PropertySpec>> = {};
   if ([".ts", ".tsx"].includes(ext)) {
     try {
-      const tsSchemas = await parseTsFile(absPath);
-      for (const name of Object.keys(tsSchemas)) {
-        // Deduplicate: skip TS if Zod schema with same name exists
-        if (!zodSchemas[name]) {
-          bundles.push({ name, schema: tsSchemas[name], kind: "ts", filePath: absPath });
-        }
-      }
+      tsSchemas = await parseTsFile(absPath);
     } catch {
       // ignore parsing errors
     }
   }
 
-  return bundles;
+  // Deduplicate by endpoint name, prefer Zod, skip TS z.infer aliases
+  const endpointMap: Map<string, SchemaBundle> = new Map();
+
+  // Helper to detect z.infer aliases (very basic: type alias with 'z.infer')
+  const isZodInferAlias = (name: string, filePath: string): boolean => {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const regex = new RegExp(`export\\s+type\\s+${name}\\s*=\\s*z\\.infer`, "i");
+    return regex.test(content);
+  };
+
+  // Add Zod schemas first
+  for (const name of Object.keys(zodSchemas)) {
+    const endpoint = getEndpointName(name);
+    endpointMap.set(endpoint, { name, schema: zodSchemas[name], kind: "zod", filePath: absPath });
+  }
+
+  // Add TS schemas if not z.infer alias and endpoint not already present
+  for (const name of Object.keys(tsSchemas)) {
+    const endpoint = getEndpointName(name);
+    if (!endpointMap.has(endpoint) && !isZodInferAlias(name, absPath)) {
+      endpointMap.set(endpoint, { name, schema: tsSchemas[name], kind: "ts", filePath: absPath });
+    }
+  }
+
+  return Array.from(endpointMap.values());
 };
 
 const SCHEMA_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);

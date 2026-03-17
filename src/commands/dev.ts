@@ -30,7 +30,7 @@ fastify.setErrorHandler((error, request, reply) => {
 });
 
 // Helper to get endpoint name from schema name
-const getEndpointName = (rawName: string) => {
+export const getEndpointName = (rawName: string) => {
   // Remove 'Schema', 'Type', or 'Interface' suffix (case-insensitive)
   let name = rawName.replace(/(schema|type|interface)$/i, "");
   // Capitalize first letter for consistency
