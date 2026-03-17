@@ -24,7 +24,6 @@ A CLI tool for generating mock data from TypeScript types or Zod schemas. Perfec
 
 ## Planned Features
 
-- Seed option for reproducible mock data generation (e.g., `--seed 123` for consistent results)
 - `voro share`: create cloud-hosted API endpoints for sharing mock APIs across teams or for development
 - Advanced metadata and customization options for more sophisticated mocking scenarios
 - `voro clean`: remove `voro`-specific JSDoc comments
@@ -81,7 +80,7 @@ voro dev -f path/to/schema.ts -p 4010
 - `-f` or `--file`: path to a single schema file (TypeScript or Zod)
 - `-d` or `--dir`: path to a directory containing schema files
 - `-p` or `--port`: port to listen on (default: 4010)
-- `--seed`: seed for deterministic mock data (the same `id` will always produce the same object)
+- `-s`: seed for deterministic mock data (the same `id` will always produce the same object)
 
 The server automatically:
 - Creates RESTful endpoints by pluralizing schema names (e.g., `User` → `/users`)
