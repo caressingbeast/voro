@@ -80,7 +80,7 @@ voro dev -f path/to/schema.ts -p 4010
 - `-f` or `--file`: path to a single schema file (TypeScript or Zod)
 - `-d` or `--dir`: path to a directory containing schema files
 - `-p` or `--port`: port to listen on (default: 4010)
-- `-s`: seed for deterministic mock data (the same `id` will always produce the same object)
+- `-s` or `--seed`: seed for deterministic mock data (the same `id` will always produce the same object)
 
 The server automatically:
 - Creates RESTful endpoints by pluralizing schema names (e.g., `User` → `/users`)
