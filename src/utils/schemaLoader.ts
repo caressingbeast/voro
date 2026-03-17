@@ -32,6 +32,7 @@ import { TypeParser } from "./tsParser.js";
 import { ZodParser } from "./zodParser.js";
 import { getEndpointName } from "../commands/dev.js";
 import type { PropertySpec } from "../types.js";
+import * as z from "zod";
 
 export type SchemaKind = "zod" | "ts";
 
@@ -56,8 +57,8 @@ const parseZodFile = async (filePath: string): Promise<Record<string, Record<str
 
   for (const exportName of Object.keys(module)) {
     const exported = module[exportName];
-    // Only try to parse if it's a Zod schema (object, union, etc.)
-    if (exported && typeof exported === "object" && exported._def && typeof exported._def === "object") {
+    // Only try to parse if it's an actual Zod schema (instance of z.ZodType)
+    if (exported instanceof z.ZodType) {
       try {
         const schema = await parser.parse(exportName);
         result[exportName] = schema;
