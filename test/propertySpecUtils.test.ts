@@ -85,7 +85,13 @@ describe("propertySpecUtils", () => {
       expect(getKeyFromName("id")).toBe("uuid");
       expect(getKeyFromName("userId")).toBe("uuid");
       expect(getKeyFromName("name")).toBe("name");
-      expect(getKeyFromName("firstName")).toBe("name");
+      expect(getKeyFromName("firstName")).toBe("firstName");
+      expect(getKeyFromName("firstname")).toBe("firstName");
+      expect(getKeyFromName("lastName")).toBe("lastName");
+      expect(getKeyFromName("surname")).toBe("lastName");
+      expect(getKeyFromName("username")).toBe("username");
+      expect(getKeyFromName("login")).toBe("username");
+      expect(getKeyFromName("twitterHandle")).toBe("username");
       expect(getKeyFromName("password")).toBe("password");
       expect(getKeyFromName("state")).toBe("state");
       expect(getKeyFromName("url")).toBe("url");

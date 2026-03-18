@@ -118,6 +118,15 @@ export function getKeyFromName(name: string): string | null {
   if (/email/i.test(name)) return "email";
   if (/id$/i.test(name)) return "uuid";
   if (/image|photo/i.test(name)) return "image";
+  if (/first[_]?name|firstname/i.test(name)) return "firstName";
+  if (/last[_]?name|lastname|surname/i.test(name)) return "lastName";
+  if (
+    /user[_]?name/i.test(name) ||
+    /^login$/i.test(name) ||
+    /handle$/i.test(name)
+  ) {
+    return "username";
+  }
   if (/name/i.test(name)) return "name";
   if (/password/i.test(name)) return "password";
   if (/phone/i.test(name)) return "phone";

@@ -188,7 +188,7 @@ export class ZodParser {
   private parseArrayField(baseType: any, optional: boolean): PropertySpec {
     const def = getZodDef(baseType);
     let arrMeta: Record<string, any> = {};
-    let elementType: PropertySpec | string = "string";
+    let elementType: string | PropertySpec = "string";
     const elementSchema = getZodArrayElementSchema(baseType);
 
     if (elementSchema) {
@@ -201,11 +201,15 @@ export class ZodParser {
       if (hasElementMeta) {
         const fullSpec = finalizePropertySpec("", parsed, elementMeta);
         if (fullSpec.type === "unknown") fullSpec.type = "string";
-        if (Array.isArray(fullSpec.type)) fullSpec.type = fullSpec.type.flat();
+        if (Array.isArray(fullSpec.type)) {
+          fullSpec.type = fullSpec.type.flat() as PropertySpec["type"];
+        }
         elementType = fullSpec;
       } else {
         const t = parsed.type;
-        elementType = t === "unknown" ? "string" : Array.isArray(t) ? t.flat() : t;
+        elementType = (
+          t === "unknown" ? "string" : Array.isArray(t) ? t.flat() : t
+        ) as string | PropertySpec;
       }
       for (const check of def?.checks || []) {
         const c = check as any;
@@ -215,7 +219,11 @@ export class ZodParser {
       }
     }
     arrMeta = { ...arrMeta, ...this.extractVoroMetadata(getZodDescription(baseType)) };
-    return { type: [elementType], optional, metadata: arrMeta };
+    return {
+      type: [elementType] as PropertySpec["type"],
+      optional,
+      metadata: arrMeta,
+    };
   }
 
   private parseField(schema: ZodTypeAny): PropertySpec {
@@ -227,12 +235,23 @@ export class ZodParser {
     const unwrappedTypeName = this.getTypeName(unwrapped);
     const unwrappedDef = getZodDef(unwrapped);
 
-    if (unwrappedTypeName === "ZodDefault" || unwrappedTypeName === "ZodOptional") {
-      optional = true;
-      baseType = unwrappedDef?.innerType ?? baseType;
+    // Zod v3: ZodOptional / ZodDefault; Zod v4: def.type "optional" / "default"
+    if (
+      unwrappedTypeName === "ZodDefault" ||
+      unwrappedTypeName === "ZodOptional" ||
+      unwrappedTypeName === "optional" ||
+      unwrappedTypeName === "default"
+    ) {
+      optional = unwrappedTypeName !== "default" ? true : optional;
+      if (unwrappedTypeName === "default") {
+        baseType = unwrappedDef?.innerType ?? unwrappedDef?.schema ?? baseType;
+      } else {
+        baseType = unwrappedDef?.innerType ?? baseType;
+      }
     }
 
-    if (this.getTypeName(baseType) === "ZodNullable") {
+    const nullableTypeName = this.getTypeName(baseType);
+    if (nullableTypeName === "ZodNullable" || nullableTypeName === "nullable") {
       const nullableDef = getZodDef(baseType);
       const inner = nullableDef?.innerType ?? (baseType as any)._def?.innerType;
       const innerParsed = this.parseField(inner as unknown as ZodTypeAny);

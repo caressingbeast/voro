@@ -14,6 +14,7 @@ export const User = z.object({
   address: Address,
   age: z.number().min(18).max(75),
   email: z.email(),
+  image: z.url(),
   isAdmin: z.boolean(),
   name: z.string().describe(`@voro.format name`),
   status: z.enum(["active", "inactive", "pending"]),

@@ -29,8 +29,9 @@ describe("ZodParser", () => {
       expect(mocks.isAdmin.type).toEqual("boolean");
       expect(mocks.name.type).toEqual("string");
       expect(mocks.status.type).toEqual(["active", "inactive", "pending"]);
-      expect(Array.isArray(mocks.tags.type) && mocks.tags.type.length === 1).toBe(true);
-      const tagEl = mocks.tags.type[0];
+      const tagsType = mocks.tags.type;
+      expect(Array.isArray(tagsType) && tagsType.length === 1).toBe(true);
+      const tagEl = (tagsType as PropertySpec[])[0];
       if (typeof tagEl === "object" && tagEl !== null && "type" in tagEl) expect((tagEl as any).metadata?.format).toBe("word");
       else expect(tagEl).toBe("string");
     });

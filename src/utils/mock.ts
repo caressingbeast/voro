@@ -50,10 +50,13 @@ export class TypeMocker {
     email: () => faker.internet.email(),
     function: () => () => { },
     image: () => faker.image.url(),
+    firstName: () => faker.person.firstName(),
+    lastName: () => faker.person.lastName(),
     name: () => faker.person.fullName(),
     number: ({ min = 1, max = 100 }) => faker.number.int({ min, max }),
     paragraph: () => faker.lorem.paragraph(),
     password: () => faker.internet.password(),
+    phone: () => faker.phone.number(),
     state: () => faker.location.state(),
     string: () => faker.lorem.word(),
     url: () => faker.internet.url(),
@@ -108,17 +111,28 @@ export class TypeMocker {
       if (dateHint === "future") return faker.date.future().toISOString();
       if (dateHint === "recent") return faker.date.recent().toISOString();
       if (dateHint === "past") return faker.date.past().toISOString();
-      // Use minLength/maxLength if present (fallback for generic strings)
-      const minLength = metadata.minLength ? Number(metadata.minLength) : 1;
-      const maxLength = metadata.maxLength ? Number(metadata.maxLength) : 16;
-      if (!isNaN(minLength) && !isNaN(maxLength)) {
-        const len = faker.number.int({ min: minLength, max: maxLength });
-        return faker.string.alphanumeric({ length: len });
+      // minLength/maxLength only when schema actually constrains length (not default 1–16)
+      const hasLengthConstraint =
+        metadata.minLength !== undefined || metadata.maxLength !== undefined;
+      if (hasLengthConstraint) {
+        const minLength = metadata.minLength ? Number(metadata.minLength) : 1;
+        const maxLength = metadata.maxLength ? Number(metadata.maxLength) : 16;
+        if (!isNaN(minLength) && !isNaN(maxLength)) {
+          const len = faker.number.int({ min: minLength, max: maxLength });
+          return faker.string.alphanumeric({ length: len });
+        }
       }
-      // Field name hints (e.g. createdAt -> date)
+      // Field-name hints: address1, city, country, zip, state, etc.
       const key = getKeyFromName(nameForHint as string);
       if (key === "date") return faker.date.past().toISOString();
-      // Fallback to lorem word
+      if (key && this.mockGenerators[key]) {
+        let value = this.mockGenerators[key]({});
+        if (!isValidMockValue(value, type)) {
+          warnInvalidFakerData(nameForHint as string, type, value);
+          value = getFallbackValue(type);
+        }
+        return value;
+      }
       return faker.lorem.word();
     }
 

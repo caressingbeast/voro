@@ -1,6 +1,6 @@
 {
   "name": "voro",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Generate mock APIs from TypeScript & Zod schemas",
   "main": "dist/cli.js",
   "bin": {

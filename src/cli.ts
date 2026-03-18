@@ -9,7 +9,7 @@ const program = new Command();
 program
   .name("voro")
   .description("Generate mock APIs from TypeScript & Zod schemas.")
-  .version("1.4.1");
+  .version("1.4.3");
 
 program.addCommand(mockCommand);
 program.addCommand(devCommand);

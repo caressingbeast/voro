@@ -71,8 +71,10 @@ describe("PropertySpec extraction (Zod/TS)", () => {
     });
     const parser = new ZodParser("dummy");
     const props = parser.extractProperties(schema as any);
-    expect(props.words.type).toHaveLength(1);
-    const element = props.words.type[0];
+    const wordsType = props.words.type;
+    expect(Array.isArray(wordsType)).toBe(true);
+    expect(wordsType).toHaveLength(1);
+    const element = (wordsType as PropertySpec[])[0];
     if (typeof element === "object" && element !== null && "metadata" in element) {
       expect((element as any).metadata?.format).toBe("word");
     }
