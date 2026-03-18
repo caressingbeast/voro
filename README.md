@@ -95,7 +95,7 @@ Voro works differently:
   - unions, enums, arrays, nested types
 - Deterministic mock generation with `--seed`
 - Custom `@voro.*` metadata via JSDoc (and Zod `.describe()`):
-  - **`@voro.format`** – `uuid`, `email`, `name`, `word`, `iso.datetime`, `iso.date` (YYYY-MM-DD). For arrays, you can put format on the element: `z.array(z.string().describe("@voro.format word"))`.
+  - **`@voro.format`** – `uuid`, `email`, `name`, `word`, `paragraph`, `iso.datetime`, `iso.date` (YYYY-MM-DD). For arrays, you can put format on the element: `z.array(z.string().describe("@voro.format word"))`.
   - **`@voro.date`** – `past`, `future`, `recent`
   - **`@voro.range`** – number ranges (e.g. `18 99`)
   - **`@voro.length`** – array length (e.g. on the array: `.describe("@voro.length 3")`)

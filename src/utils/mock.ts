@@ -98,6 +98,8 @@ export class TypeMocker {
       if (metadata.format === "email") return faker.internet.email();
       // Name
       if (metadata.format === "name") return faker.person.fullName();
+      // Paragraph
+      if (metadata.format === "paragraph") return faker.lorem.paragraph();
       // Word
       if (metadata.format === "word") return faker.lorem.word();
       // @voro.date or field-name hint for date
