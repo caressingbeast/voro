@@ -1,5 +1,5 @@
 export type VoroMetadata = {
-  [key: string]: string | { min: number; max: number };
+  [key: string]: string | string[] | { min: number; max: number };
 };
 
 export type PropertySpec = {

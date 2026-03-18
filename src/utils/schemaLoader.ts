@@ -1,26 +1,3 @@
-// Shared utility to validate and fix PropertySpec for required fields
-export function validateAndFixPropertySpec(key: string, prop: PropertySpec): PropertySpec {
-  // Only fix required fields
-  if (prop.optional) return prop;
-  const { type, metadata } = prop;
-  if (type === "number") {
-    // Ensure a valid range
-    let range = metadata.range;
-    if (typeof range !== "object" || range === null || typeof (range as any).min !== "number" || typeof (range as any).max !== "number") {
-      range = { min: 1, max: 100 };
-    }
-    return { ...prop, metadata: { ...metadata, range } };
-  }
-  if (type === "string") {
-    // No-op for now, but could add format fallback
-    return prop;
-  }
-  if (type === "boolean") {
-    return prop;
-  }
-  // For arrays, objects, etc., recurse if needed (not implemented here)
-  return prop;
-}
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
@@ -57,12 +34,17 @@ const parseZodFile = async (filePath: string): Promise<Record<string, Record<str
 
   for (const exportName of Object.keys(module)) {
     const exported = module[exportName];
-    // Only try to parse if it's an actual Zod schema (instance of z.ZodType)
-    if (exported instanceof z.ZodType) {
+    // Robustly detect Zod schemas regardless of import path
+    const zodDef = exported && (exported.def || exported._def);
+    if (
+      exported &&
+      typeof exported.safeParse === "function" &&
+      zodDef
+    ) {
       try {
         const schema = await parser.parse(exportName);
         result[exportName] = schema;
-      } catch {
+      } catch (err) {
         // ignore exports that are not Zod schemas
       }
     }
@@ -154,10 +136,21 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
     endpointMap.set(endpoint, { name, schema: zodSchemas[name], kind: "zod", filePath: absPath });
   }
 
-  // Add TS schemas if not z.infer alias and endpoint not already present
+  // Add TS schemas, warn if both Zod and TS exist for the same endpoint
   for (const name of Object.keys(tsSchemas)) {
     const endpoint = getEndpointName(name);
-    if (!endpointMap.has(endpoint) && !isZodInferAlias(name, absPath)) {
+    if (endpointMap.has(endpoint)) {
+      // Warn if both Zod and TS schemas exist for the same endpoint
+      const zodBundle = endpointMap.get(endpoint);
+      if (zodBundle && zodBundle.kind === "zod" && !isZodInferAlias(name, absPath)) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[voro] Warning: Both Zod and TypeScript schemas found for endpoint "${endpoint}" in file ${absPath}. Using Zod schema and ignoring TypeScript.`
+        );
+      }
+      continue;
+    }
+    if (!isZodInferAlias(name, absPath)) {
       endpointMap.set(endpoint, { name, schema: tsSchemas[name], kind: "ts", filePath: absPath });
     }
   }

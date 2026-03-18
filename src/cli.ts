@@ -8,8 +8,8 @@ const program = new Command();
 
 program
   .name("voro")
-  .description("Mock smarter, not harder.")
-  .version("1.1.0");
+  .description("Generate mock APIs from TypeScript & Zod schemas.")
+  .version("1.4.0");
 
 program.addCommand(mockCommand);
 program.addCommand(devCommand);

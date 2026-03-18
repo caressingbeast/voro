@@ -90,16 +90,16 @@ Voro works differently:
 ## Features
 
 - Parse TypeScript types and interfaces
-- Parse Zod schemas
+- Parse Zod schemas (Zod v3 and v4 supported)
 - Support complex constructs:
   - unions, enums, arrays, nested types
 - Deterministic mock generation with `--seed`
-- Custom `@voro.*` metadata via JSDoc:
-  - `@voro.format` (uuid, name, paragraph, etc.)
-  - `@voro.date` (past, future)
-  - `@voro.range` (number ranges)
-  - `@voro.length` (array lengths)
-  - `@voro.value` (fixed values)
+- Custom `@voro.*` metadata via JSDoc (and Zod `.describe()`):
+  - **`@voro.format`** – `uuid`, `email`, `name`, `word`, `iso.datetime`, `iso.date` (YYYY-MM-DD). For arrays, you can put format on the element: `z.array(z.string().describe("@voro.format word"))`.
+  - **`@voro.date`** – `past`, `future`, `recent`
+  - **`@voro.range`** – number ranges (e.g. `18 99`)
+  - **`@voro.length`** – array length (e.g. on the array: `.describe("@voro.length 3")`)
+  - **`@voro.value`** – fixed value for a field
 - Realistic data powered by `faker`
 - Recursive type handling with cycle protection
 - Live dev server with:
@@ -153,27 +153,23 @@ The server automatically:
 
 ---
 
-### Generate Mock Data (CLI)
+### Generate mock data (CLI)
 
-Generate mock data from a TypeScript type:
+One-off JSON from a schema file: `voro mock -f path/to/schema.ts -t User` (or `-s SchemaName` for Zod). Add `-o file.json` to write to a file, `--seed` for deterministic output.
 
-```bash
-voro mock -f path/to/type.ts -t User -o output.json
+### In tests: `generateMock(schema)`
+
+Generate one mock object from a Zod object schema in code (no CLI, no file):
+
+```ts
+import { generateMock } from "voro/generate-mock";
+import { userSchema } from "./schema";
+
+const mockUser = generateMock(userSchema);
+const sameEveryTime = generateMock(userSchema, "seed-123");
 ```
 
-Generate mock data from a Zod schema:
-
-```bash
-voro mock -f path/to/schema.ts -s User -o output.json
-```
-
-Options:
-
-- `-f, --file` Path to schema file  
-- `-t, --type` Type name (TypeScript)  
-- `-s, --schema` Schema name (Zod)  
-- `-o, --output` Output file (optional)  
-- `--seed` Deterministic output  
+Useful for fixtures, unit tests, and seeding. Uses the same faker-backed logic as the dev server.
 
 ---
 

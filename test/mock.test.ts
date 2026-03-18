@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { TypeMocker } from "../src/utils/mock";
 
@@ -136,6 +136,34 @@ describe("TypeMocker", () => {
       expect(typeof mocks.name).toEqual("string");
       expect(typeof mocks.createdAt).toEqual("string");
       expect(new Date(mocks.createdAt).getTime()).toBeGreaterThan(new Date().getTime());
+    });
+  });
+
+  describe("edge cases", () => {
+    test("unknown type falls back to getDefaultMockValue", () => {
+      const schema = {
+        foo: { type: "unknown", optional: false, metadata: {} }
+      };
+      const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const mocks = new TypeMocker(schema).mock();
+      expect(mocks.foo).toBeDefined();
+      expect(typeof mocks.foo === "string" || typeof mocks.foo === "number" || mocks.foo === null).toBe(true);
+      spy.mockRestore();
+    });
+
+    test("optional fields could be omitted (random)", () => {
+      const schema = {
+        required: generateProperty("string"),
+        optional: { ...generateProperty("string"), optional: true }
+      };
+      const mocker = new TypeMocker(schema);
+      const results = new Set<string | undefined>();
+      for (let i = 0; i < 20; i++) {
+        const m = mocker.mock();
+        results.add(m.optional);
+      }
+      expect(mocker.mock().required).toBeDefined();
+      expect(results.size).toBeGreaterThanOrEqual(1);
     });
   });
 });

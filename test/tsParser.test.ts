@@ -1,15 +1,15 @@
 import path from "path";
 import { describe, expect, test } from "vitest";
 
+import type { PropertySpec } from "../src/types";
 import { TypeParser } from "../src/utils/tsParser";
 
 describe("TypeParser", () => {
-  const typesDir = path.join(__dirname, "./examples");
-  const testFile = path.join(typesDir, "tests.ts");
+  const testFile = path.resolve(__dirname, "examples", "tests.ts");
 
   describe("parse()", () => {
     test("throws when the file is not found", () => {
-      const parser = new TypeParser(path.join(typesDir, "notFound.ts"));
+      const parser = new TypeParser(path.resolve(__dirname, "examples", "notFound.ts"));
       expect(() => parser.parse("BasicUser")).toThrowError("notFound.ts not found");
     });
 
@@ -45,7 +45,7 @@ describe("TypeParser", () => {
       const parser = new TypeParser(testFile);
       const mocks = parser.parse("NestedUser");
 
-      const address = mocks.address.type;
+      const address = mocks.address.type as Record<string, PropertySpec>;
       expect(typeof address).toEqual("object");
       expect(typeof address.address1.type).toEqual("string");
       expect(typeof address.city.type).toEqual("string");

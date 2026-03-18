@@ -1,25 +1,27 @@
+import path from "path";
 import ts from "typescript";
 
-import type { VoroMetadata } from "../types";
+import type { PropertySpec, VoroMetadata } from "../types";
+import { finalizePropertySpec } from "./propertySpecCore.js";
 
 export class TypeParser {
-  private checker: ts.TypeChecker;
   private program: ts.Program;
+  private resolvedPath: string;
 
-  constructor(private filePath: string) {
-    const configPath = ts.findConfigFile(filePath, ts.sys.fileExists, "tsconfig.json");
+  constructor(filePath: string) {
+    this.resolvedPath = path.resolve(filePath);
+    const configPath = ts.findConfigFile(this.resolvedPath, ts.sys.fileExists, "tsconfig.json");
     if (!configPath) throw new Error("tsconfig.json not found");
 
     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, "./");
 
-    this.program = ts.createProgram([filePath], parsed.options);
-    this.checker = this.program.getTypeChecker();
+    this.program = ts.createProgram([this.resolvedPath], parsed.options);
   }
 
-  public parse(typeName: string) {
-    const source = this.program.getSourceFile(this.filePath);
-    if (!source) throw new Error(`${this.filePath} not found`);
+  public parse(typeName: string): Record<string, PropertySpec> {
+    const source = this.getSource();
+    if (!source) throw new Error(`${this.resolvedPath} not found`);
 
     let targetNode: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | undefined;
 
@@ -39,21 +41,22 @@ export class TypeParser {
           ? targetNode.type.members
           : ([] as unknown as ts.NodeArray<ts.TypeElement>);
 
-    return this.extractProperties(members, new Set());
+    return this.extractProperties(members, new Set(), source);
   }
 
   private extractProperties(
     members: ts.NodeArray<ts.TypeElement>,
-    visited: Set<string>
-  ): Record<string, { type: any; optional: boolean; metadata: VoroMetadata }> {
-    const result: Record<string, { type: any; optional: boolean; metadata: VoroMetadata }> = {};
+    visited: Set<string>,
+    source?: ts.SourceFile
+  ): Record<string, PropertySpec> {
+    const result: Record<string, PropertySpec> = {};
 
     for (const member of members) {
       if (ts.isPropertySignature(member) && member.type && ts.isIdentifier(member.name)) {
         const name = member.name.text;
         const optional = !!member.questionToken;
-        let metadata = this.extractVoroMetadata(member);
-        const type = this.extractTypeNode(member.type, visited);
+        let metadata = this.extractVoroMetadata(member, source);
+        const type = this.extractTypeNode(member.type, visited, source);
 
         // Detect nullable: union containing null
         let isNullable = false;
@@ -68,47 +71,59 @@ export class TypeParser {
           metadata = { ...metadata, nullable: "true" };
         }
 
-        result[name] = { type, optional, metadata };
+        result[name] = finalizePropertySpec(name, { type, optional, metadata }, metadata);
       }
     }
 
     return result;
   }
 
-  private extractTypeNode(typeNode: ts.TypeNode, visited: Set<string>): any {
+  private extractTypeNode(typeNode: ts.TypeNode, visited: Set<string>, source?: ts.SourceFile): any {
+    if (!typeNode) return "unknown";
     if (ts.isTypeReferenceNode(typeNode)) {
-      const typeName = typeNode.typeName.getText();
+      try {
+        if (!typeNode.typeName) return "unknown";
+        const src = source ?? typeNode.getSourceFile();
+        const typeName = (src ? typeNode.typeName.getText(src) : typeNode.typeName.getText()).trim();
       if (visited.has(typeName)) return "any"; // recursion protection
       visited.add(typeName);
 
       // Special-case common utility types
       if (typeName === "Record" && typeNode.typeArguments?.length === 2) {
-        const keyType = this.extractTypeNode(typeNode.typeArguments[0], visited);
-        const valueType = this.extractTypeNode(typeNode.typeArguments[1], visited);
+        const keyType = this.extractTypeNode(typeNode.typeArguments[0], visited, source);
+        const valueType = this.extractTypeNode(typeNode.typeArguments[1], visited, source);
         return { record: { key: keyType, value: valueType } };
       }
 
       if (typeName === "Partial" && typeNode.typeArguments?.[0]) {
-        return this.extractTypeNode(typeNode.typeArguments[0], visited);
+        return this.extractTypeNode(typeNode.typeArguments[0], visited, source);
       }
 
       const decl = this.findTypeDeclaration(typeName);
       if (decl) {
+        const declSource = decl.getSourceFile();
         if (ts.isInterfaceDeclaration(decl)) {
-          return this.extractProperties(decl.members, new Set(visited));
+          return this.extractProperties(decl.members, new Set(visited), declSource);
         }
 
         if (ts.isTypeAliasDeclaration(decl) && ts.isTypeLiteralNode(decl.type)) {
-          return this.extractProperties(decl.type.members, new Set(visited));
+          return this.extractProperties(decl.type.members, new Set(visited), declSource);
         }
       }
 
       return typeName;
+      } catch {
+        try {
+          return (source ? typeNode.getText(source) : typeNode.getText()).trim();
+        } catch {
+          return "unknown";
+        }
+      }
     }
 
     if (ts.isUnionTypeNode(typeNode)) {
       return typeNode.types.map((t) => {
-        const val = this.extractTypeNode(t, visited);
+        const val = this.extractTypeNode(t, visited, source);
         // Strip quotes from string literals in unions
         if (typeof val === "string" && /^".*"$/.test(val)) return val.slice(1, -1);
         return val;
@@ -116,7 +131,7 @@ export class TypeParser {
     }
 
     if (ts.isIntersectionTypeNode(typeNode)) {
-      const parts = typeNode.types.map((t) => this.extractTypeNode(t, visited));
+      const parts = typeNode.types.map((t) => this.extractTypeNode(t, visited, source));
       // If all parts are objects, merge them
       const merged = parts.reduce((acc, cur) => {
         if (typeof acc === "object" && acc !== null && typeof cur === "object" && cur !== null) {
@@ -128,15 +143,15 @@ export class TypeParser {
     }
 
     if (ts.isArrayTypeNode(typeNode)) {
-      return [this.extractTypeNode(typeNode.elementType, visited)];
+      return [this.extractTypeNode(typeNode.elementType, visited, source)];
     }
 
     if (ts.isTupleTypeNode(typeNode)) {
-      return typeNode.elements.map((el) => this.extractTypeNode(el, visited));
+      return typeNode.elements.map((el) => this.extractTypeNode(el, visited, source));
     }
 
     if (ts.isTypeLiteralNode(typeNode)) {
-      return this.extractProperties(typeNode.members, visited);
+      return this.extractProperties(typeNode.members, visited, source);
     }
 
     if (ts.isFunctionTypeNode(typeNode)) {
@@ -144,10 +159,20 @@ export class TypeParser {
     }
 
     if (ts.isLiteralTypeNode(typeNode)) {
-      return typeNode.getText().replace(/^"|"$/g, "");
+      try {
+        const text = source ? typeNode.getText(source) : typeNode.getText();
+        return text.replace(/^"|"$/g, "").trim();
+      } catch {
+        return "unknown";
+      }
     }
 
-    return typeNode.getText();
+    try {
+      const text = source ? typeNode.getText(source) : typeNode.getText();
+      return text.trim();
+    } catch {
+      return "unknown";
+    }
   }
 
   private getTagCommentText(
@@ -158,28 +183,43 @@ export class TypeParser {
     return comment.map(c => c.getText()).join(" ");
   }
 
-  private extractVoroMetadata(member: ts.PropertySignature): VoroMetadata {
+  private extractVoroMetadata(member: ts.PropertySignature, source?: ts.SourceFile): VoroMetadata {
     const metadata: VoroMetadata = {};
-    const tags = ts.getJSDocTags(member);
+    let tags = ts.getJSDocTags(member);
+    const memberWithJSDoc = member as { jsDoc?: Array<{ tags?: ts.JSDocTag[] }> };
+    if (tags.length === 0 && memberWithJSDoc.jsDoc) {
+      tags = memberWithJSDoc.jsDoc.flatMap((d) => d.tags ?? []);
+    }
 
     for (const tag of tags) {
-      if (tag.tagName.getText() === "voro") {
-        const rawComment = this.getTagCommentText(tag.comment);
-        const parts = rawComment.trim().split(/\s+/);
-        const key = parts.shift()?.replace(/^\./, "");
-        const value = parts.join(" ");
+      const src = source ?? (member as ts.Node).getSourceFile?.();
+      const tagText = (src ? tag.tagName.getText(src) : tag.tagName.getText()).trim();
+      const rawComment = this.getTagCommentText(tag.comment).trim();
 
-        if (!key) continue;
+      // Support both @voro key value and @voro.key value
+      let key: string | undefined;
+      let value: string;
 
-        if (key === "range") {
-          // Expect two numbers space separated, e.g. "1 10"
-          const nums = value.split(/\s+/).map(Number);
-          if (nums.length === 2 && nums.every(n => !isNaN(n))) {
-            metadata.range = { min: nums[0], max: nums[1] };
-          }
-        } else {
-          metadata[key] = value;
+      if (tagText === "voro") {
+        const parts = rawComment.split(/\s+/);
+        key = parts.shift()?.replace(/^\./, "");
+        value = parts.join(" ");
+      } else if (tagText.startsWith("voro.")) {
+        key = tagText.replace(/^voro\./, "");
+        value = rawComment;
+      } else {
+        continue;
+      }
+
+      if (!key) continue;
+
+      if (key === "range") {
+        const nums = value.split(/\s+/).map(Number);
+        if (nums.length === 2 && nums.every((n) => !isNaN(n))) {
+          metadata.range = { min: nums[0], max: nums[1] };
         }
+      } else {
+        metadata[key] = value;
       }
     }
 
@@ -187,8 +227,16 @@ export class TypeParser {
   }
 
 
+  private getSource(): ts.SourceFile | undefined {
+    const exact = this.program.getSourceFile(this.resolvedPath);
+    if (exact) return exact;
+    return this.program.getSourceFiles().find(
+      (sf) => path.resolve(sf.fileName) === this.resolvedPath
+    );
+  }
+
   private findTypeDeclaration(name: string): ts.Declaration | undefined {
-    const source = this.program.getSourceFile(this.filePath);
+    const source = this.getSource();
     if (!source) return;
 
     let found: ts.Declaration | undefined;

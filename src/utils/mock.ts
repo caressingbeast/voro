@@ -74,33 +74,77 @@ export class TypeMocker {
   }
 
 
-  private mockFromMetadata(type: string, metadata: VoroMetadata): any {
-    // Return an explicit value
-    if (metadata.value) return metadata.value;
+  private mockFromMetadata(type: string, metadata: VoroMetadata, fieldName?: string): any {
+    // Always use explicit value if present
+    if (metadata.value !== undefined) return metadata.value;
 
-    // Check in generator map
-    if (type === "number") {
-      if (typeof metadata.range === "object") {
-        if (this.mockGenerators[type]) {
-          return this.mockGenerators[type]({ min: metadata.range.min, max: metadata.range.max });
-        }
-      }
+    // Handle enums (array of allowed values or metadata.enum)
+    if (metadata.enum && Array.isArray(metadata.enum)) {
+      return faker.helpers.arrayElement(metadata.enum);
+    }
+    if (Array.isArray(type) && type.every(v => typeof v !== 'object')) {
+      return faker.helpers.arrayElement(type);
     }
 
+    // Zod type/constraint-driven logic only
     if (type === "string") {
-      if (typeof metadata.date === "string") {
-        if (this.mockGenerators["date"]) {
-          return this.mockGenerators["date"]({ type: metadata.date });
-        }
+      // UUID
+      if (metadata.format === "uuid") return faker.string.uuid();
+      // ISO datetime (full ISO 8601)
+      if (metadata.format === "iso.datetime") return faker.date.past().toISOString();
+      // ISO date only (YYYY-MM-DD)
+      if (metadata.format === "iso.date") return faker.date.past().toISOString().slice(0, 10);
+      // Email
+      if (metadata.format === "email") return faker.internet.email();
+      // Name
+      if (metadata.format === "name") return faker.person.fullName();
+      // Word
+      if (metadata.format === "word") return faker.lorem.word();
+      // @voro.date or field-name hint for date
+      const nameForHint = (metadata as any).fieldName ?? fieldName;
+      const dateHint = (metadata as any).date ?? (getKeyFromName(nameForHint as string) === "date" ? "past" : undefined);
+      if (dateHint === "future") return faker.date.future().toISOString();
+      if (dateHint === "recent") return faker.date.recent().toISOString();
+      if (dateHint === "past") return faker.date.past().toISOString();
+      // Use minLength/maxLength if present (fallback for generic strings)
+      const minLength = metadata.minLength ? Number(metadata.minLength) : 1;
+      const maxLength = metadata.maxLength ? Number(metadata.maxLength) : 16;
+      if (!isNaN(minLength) && !isNaN(maxLength)) {
+        const len = faker.number.int({ min: minLength, max: maxLength });
+        return faker.string.alphanumeric({ length: len });
       }
-
-      if (typeof metadata.format === "string") {
-        if (this.mockGenerators[metadata.format]) {
-          return this.mockGenerators[metadata.format]({});
-        }
-      }
+      // Field name hints (e.g. createdAt -> date)
+      const key = getKeyFromName(nameForHint as string);
+      if (key === "date") return faker.date.past().toISOString();
+      // Fallback to lorem word
+      return faker.lorem.word();
     }
 
+    if (type === "number") {
+      // Prefer metadata.range, but fallback to min/max if present in metadata
+      let min = 1, max = 100;
+      const range = metadata.range;
+      if (typeof range === "object" && range !== null && !Array.isArray(range) && "min" in range && "max" in range) {
+        min = Number(range.min);
+        max = Number(range.max);
+      } else {
+        if (metadata.min !== undefined) min = Number(metadata.min);
+        if (metadata.max !== undefined) max = Number(metadata.max);
+      }
+      if (!isNaN(min) && !isNaN(max)) {
+        return faker.number.int({ min, max });
+      }
+      return faker.number.int();
+    }
+
+    if (type === "boolean" && metadata.value !== undefined) {
+      return Boolean(metadata.value);
+    }
+    if (type === "boolean") {
+      return faker.datatype.boolean();
+    }
+
+    // If we reach here, we have no constraints to use. This is a fallback and should be rare.
     return undefined;
   }
 
@@ -141,10 +185,31 @@ export class TypeMocker {
       if (Math.random() < 0.5) return null;
     }
 
+    // If enum metadata is present, always prefer it (works for both TS and Zod enums)
+    if (metadata && Array.isArray((metadata as any).enum)) {
+      return faker.helpers.arrayElement((metadata as any).enum as any[]);
+    }
+
     if (Array.isArray(type)) {
+      // Enum: array of primitives (e.g. ["active", "inactive", "pending"])
+      if (type.length > 1 && type.every((t) => typeof t === "string" || typeof t === "number" || typeof t === "boolean")) {
+        return faker.helpers.arrayElement(type as (string | number | boolean)[]);
+      }
       if (type.length === 1) {
         // It's an array type (e.g. ["string"])
-        const count = resolveArrayLength(metadata.length);
+        let count = 1;
+        // Prefer metadata.length, then @voro.length, then minLength/maxLength, then fallback
+        if (metadata.length !== undefined) {
+          count = Number(metadata.length);
+        } else if (metadata["@voro.length"] !== undefined) {
+          count = Number(metadata["@voro.length"]);
+        } else if (metadata.minLength || metadata.maxLength) {
+          const min = metadata.minLength ? Number(metadata.minLength) : 1;
+          const max = metadata.maxLength ? Number(metadata.maxLength) : 5;
+          count = faker.number.int({ min, max });
+        } else {
+          count = resolveArrayLength(undefined);
+        }
         return Array.from({ length: count }, () => {
           const propType: PropertySpec =
             typeof type[0] === "string"
@@ -168,8 +233,15 @@ export class TypeMocker {
     }
 
     // Use metadata first
-    const metaVal = this.mockFromMetadata(type, metadata);
+    const metaVal = this.mockFromMetadata(type, metadata, name);
     if (metaVal !== undefined) return metaVal;
+
+    // Defensive: warn only for truly unknown types.
+    // Empty metadata is normal for enums, booleans, functions, etc.
+    if (type === "unknown") {
+      // eslint-disable-next-line no-console
+      console.warn(`[voro] Warning: mockProperty received unknown type for field '${name}'.`);
+    }
 
     return this.getDefaultMockValue(name, type);
   }

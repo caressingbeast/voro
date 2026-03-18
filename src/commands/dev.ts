@@ -10,7 +10,6 @@ import chokidar from "chokidar";
 import pluralize from "pluralize";
 import { Command } from "commander";
 import supportsHyperlinks from "supports-hyperlinks";
-// import supportsHyperlinks from "supports-hyperlinks";
 
 import { TypeMocker, hashStringToNumber } from "../utils/mock.js";
 import * as z from "zod";

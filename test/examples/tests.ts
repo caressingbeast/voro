@@ -43,7 +43,7 @@ export const BasicUserSchema = z.object({
   id: z.uuid({ version: "v4" }),
   age: z.number(),
   isAdmin: z.boolean(),
-  name: z.string(),
+  name: z.string().describe("@voro.format name"),
   status: z.enum(["active", "inactive", "pending"]),
   tags: z.array(z.string()),
   createdAt: z.iso.datetime()
