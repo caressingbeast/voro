@@ -43,7 +43,7 @@ Now you have a working API:
   "data": [
     {
       "id": "e22f8169-c8cc-4326-a335-e4715f48822b",
-      "name": "Alice",
+      "name": "Ellen Ripley",
       "status": "active"
     }
   ],
@@ -100,6 +100,7 @@ Voro works differently:
   - **`@voro.range`** – number ranges (e.g. `18 99`)
   - **`@voro.length`** – array length (e.g. on the array: `.describe("@voro.length 3")`)
   - **`@voro.value`** – fixed value for a field
+  - **`@voro.locale`** – Faker locale for mocks. Put it on the **root** `z.object` you export (e.g. `User`) to affect the whole response, **or** on a **nested** `z.object` (e.g. your `Address` schema) to affect only that subtree—useful when the parent stays default `en_US` but `address` should be `en_GB`. Same codes as [@faker-js/faker locales](https://fakerjs.dev/guide/localization.html) (`en_US`, `de`, `pt_BR`, `en_GB`, …). **Default is `en_US`** when omitted. **`country`-named fields** use that locale’s primary country (e.g. `"United States"`, `"United Kingdom"`, `"Germany"`). TypeScript-only schemas use the default until you add Zod with `@voro.locale`.
 - Realistic data powered by `faker`
 - Recursive type handling with cycle protection
 - Live dev server with:

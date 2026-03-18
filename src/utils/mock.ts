@@ -1,19 +1,26 @@
-import { faker } from '@faker-js/faker';
-import { z } from 'zod';
+import type { Faker } from "@faker-js/faker";
 
-import type { PropertySpec, VoroMetadata } from '../types';
-import { getKeyFromName, resolveArrayLength, resolveUnionOrNullable, isValidMockValue, warnInvalidFakerData, getFallbackValue } from './propertySpecUtils.js';
+import type { PropertySpec, VoroMetadata } from "../types";
+import { getFakerForLocale, resolveFakerLocaleKey } from "./fakerLocale.js";
+import { primaryCountryForLocaleKey } from "./localePrimaryCountry.js";
+import {
+  getKeyFromName,
+  resolveArrayLength,
+  resolveUnionOrNullable,
+  isValidMockValue,
+  warnInvalidFakerData,
+  getFallbackValue,
+} from "./propertySpecUtils.js";
 
 type GeneratorOpts = {
-  min?: number,
-  max?: number,
+  min?: number;
+  max?: number;
   type?: string;
 };
 
 type GeneratorSpec = Record<string, (opts: GeneratorOpts) => boolean | number | string | (() => void)>;
 
 export const hashStringToNumber = (input: string): number => {
-  // Simple deterministic hash (FNV-1a) to convert string seeds to a number.
   let hash = 2166136261;
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i);
@@ -23,47 +30,59 @@ export const hashStringToNumber = (input: string): number => {
 };
 
 export class TypeMocker {
-  constructor(private schema: Record<string, PropertySpec>, private seed?: string | number) {
+  private readonly fk: Faker;
+  private readonly localeKey: ReturnType<typeof resolveFakerLocaleKey>;
+  private readonly mockGenerators: GeneratorSpec;
+
+  constructor(
+    private schema: Record<string, PropertySpec>,
+    private seed?: string | number,
+    fakerLocale?: string
+  ) {
+    this.localeKey = fakerLocale?.trim()
+      ? resolveFakerLocaleKey(fakerLocale)
+      : "en_US";
+    this.fk = getFakerForLocale(fakerLocale);
     if (this.seed !== undefined) {
       const seedNumber = typeof this.seed === "string" ? hashStringToNumber(this.seed) : this.seed;
-      faker.seed(seedNumber);
+      this.fk.seed(seedNumber);
     }
+    const f = this.fk;
+    this.mockGenerators = {
+      address: () => f.location.streetAddress(),
+      boolean: () => f.datatype.boolean(),
+      city: () => f.location.city(),
+      company: () => f.company.name(),
+      country: () => primaryCountryForLocaleKey(this.localeKey) ?? f.location.country(),
+      date: ({ type = "" }) => {
+        switch (type) {
+          case "future":
+            return f.date.future().toISOString();
+          case "recent":
+            return f.date.recent().toISOString();
+          default:
+            return f.date.past().toISOString();
+        }
+      },
+      description: () => f.lorem.paragraph(),
+      email: () => f.internet.email(),
+      function: () => () => {},
+      image: () => f.image.url(),
+      firstName: () => f.person.firstName(),
+      lastName: () => f.person.lastName(),
+      name: () => f.person.fullName(),
+      number: ({ min = 1, max = 100 }) => f.number.int({ min, max }),
+      paragraph: () => f.lorem.paragraph(),
+      password: () => f.internet.password(),
+      phone: () => f.phone.number(),
+      state: () => f.location.state(),
+      string: () => f.lorem.word(),
+      url: () => f.internet.url(),
+      username: () => f.internet.username(),
+      uuid: () => f.string.uuid(),
+      zip: () => f.location.zipCode(),
+    };
   }
-
-  private mockGenerators: GeneratorSpec = {
-    address: () => faker.location.streetAddress(),
-    boolean: () => faker.datatype.boolean(),
-    city: () => faker.location.city(),
-    company: () => faker.company.name(),
-    country: () => faker.location.country(),
-    date: ({ type = "" }) => {
-      switch (type) {
-        case "future":
-          return faker.date.future().toISOString();
-        case "recent":
-          return faker.date.recent().toISOString()
-        default:
-          return faker.date.past().toISOString();
-      }
-    },
-    description: () => faker.lorem.paragraph(),
-    email: () => faker.internet.email(),
-    function: () => () => { },
-    image: () => faker.image.url(),
-    firstName: () => faker.person.firstName(),
-    lastName: () => faker.person.lastName(),
-    name: () => faker.person.fullName(),
-    number: ({ min = 1, max = 100 }) => faker.number.int({ min, max }),
-    paragraph: () => faker.lorem.paragraph(),
-    password: () => faker.internet.password(),
-    phone: () => faker.phone.number(),
-    state: () => faker.location.state(),
-    string: () => faker.lorem.word(),
-    url: () => faker.internet.url(),
-    username: () => faker.internet.username(),
-    uuid: () => faker.string.uuid(),
-    zip: () => faker.location.zipCode()
-  };
 
   mock() {
     const result: Record<string, any> = {};
@@ -76,55 +95,42 @@ export class TypeMocker {
     return result;
   }
 
-
   private mockFromMetadata(type: string, metadata: VoroMetadata, fieldName?: string): any {
-    // Always use explicit value if present
+    const f = this.fk;
     if (metadata.value !== undefined) return metadata.value;
 
-    // Handle enums (array of allowed values or metadata.enum)
     if (metadata.enum && Array.isArray(metadata.enum)) {
-      return faker.helpers.arrayElement(metadata.enum);
+      return f.helpers.arrayElement(metadata.enum);
     }
-    if (Array.isArray(type) && type.every(v => typeof v !== 'object')) {
-      return faker.helpers.arrayElement(type);
+    if (Array.isArray(type) && type.every((v) => typeof v !== "object")) {
+      return f.helpers.arrayElement(type);
     }
 
-    // Zod type/constraint-driven logic only
     if (type === "string") {
-      // UUID
-      if (metadata.format === "uuid") return faker.string.uuid();
-      // ISO datetime (full ISO 8601)
-      if (metadata.format === "iso.datetime") return faker.date.past().toISOString();
-      // ISO date only (YYYY-MM-DD)
-      if (metadata.format === "iso.date") return faker.date.past().toISOString().slice(0, 10);
-      // Email
-      if (metadata.format === "email") return faker.internet.email();
-      // Name
-      if (metadata.format === "name") return faker.person.fullName();
-      // Paragraph
-      if (metadata.format === "paragraph") return faker.lorem.paragraph();
-      // Word
-      if (metadata.format === "word") return faker.lorem.word();
-      // @voro.date or field-name hint for date
+      if (metadata.format === "uuid") return f.string.uuid();
+      if (metadata.format === "iso.datetime") return f.date.past().toISOString();
+      if (metadata.format === "iso.date") return f.date.past().toISOString().slice(0, 10);
+      if (metadata.format === "email") return f.internet.email();
+      if (metadata.format === "name") return f.person.fullName();
+      if (metadata.format === "paragraph") return f.lorem.paragraph();
+      if (metadata.format === "word") return f.lorem.word();
       const nameForHint = (metadata as any).fieldName ?? fieldName;
-      const dateHint = (metadata as any).date ?? (getKeyFromName(nameForHint as string) === "date" ? "past" : undefined);
-      if (dateHint === "future") return faker.date.future().toISOString();
-      if (dateHint === "recent") return faker.date.recent().toISOString();
-      if (dateHint === "past") return faker.date.past().toISOString();
-      // minLength/maxLength only when schema actually constrains length (not default 1–16)
-      const hasLengthConstraint =
-        metadata.minLength !== undefined || metadata.maxLength !== undefined;
+      const dateHint =
+        (metadata as any).date ?? (getKeyFromName(nameForHint as string) === "date" ? "past" : undefined);
+      if (dateHint === "future") return f.date.future().toISOString();
+      if (dateHint === "recent") return f.date.recent().toISOString();
+      if (dateHint === "past") return f.date.past().toISOString();
+      const hasLengthConstraint = metadata.minLength !== undefined || metadata.maxLength !== undefined;
       if (hasLengthConstraint) {
         const minLength = metadata.minLength ? Number(metadata.minLength) : 1;
         const maxLength = metadata.maxLength ? Number(metadata.maxLength) : 16;
         if (!isNaN(minLength) && !isNaN(maxLength)) {
-          const len = faker.number.int({ min: minLength, max: maxLength });
-          return faker.string.alphanumeric({ length: len });
+          const len = f.number.int({ min: minLength, max: maxLength });
+          return f.string.alphanumeric({ length: len });
         }
       }
-      // Field-name hints: address1, city, country, zip, state, etc.
       const key = getKeyFromName(nameForHint as string);
-      if (key === "date") return faker.date.past().toISOString();
+      if (key === "date") return f.date.past().toISOString();
       if (key && this.mockGenerators[key]) {
         let value = this.mockGenerators[key]({});
         if (!isValidMockValue(value, type)) {
@@ -133,14 +139,20 @@ export class TypeMocker {
         }
         return value;
       }
-      return faker.lorem.word();
+      return f.lorem.word();
     }
 
     if (type === "number") {
-      // Prefer metadata.range, but fallback to min/max if present in metadata
-      let min = 1, max = 100;
+      let min = 1,
+        max = 100;
       const range = metadata.range;
-      if (typeof range === "object" && range !== null && !Array.isArray(range) && "min" in range && "max" in range) {
+      if (
+        typeof range === "object" &&
+        range !== null &&
+        !Array.isArray(range) &&
+        "min" in range &&
+        "max" in range
+      ) {
         min = Number(range.min);
         max = Number(range.max);
       } else {
@@ -148,22 +160,20 @@ export class TypeMocker {
         if (metadata.max !== undefined) max = Number(metadata.max);
       }
       if (!isNaN(min) && !isNaN(max)) {
-        return faker.number.int({ min, max });
+        return f.number.int({ min, max });
       }
-      return faker.number.int();
+      return f.number.int();
     }
 
     if (type === "boolean" && metadata.value !== undefined) {
       return Boolean(metadata.value);
     }
     if (type === "boolean") {
-      return faker.datatype.boolean();
+      return f.datatype.boolean();
     }
 
-    // If we reach here, we have no constraints to use. This is a fallback and should be rare.
     return undefined;
   }
-
 
   private getDefaultMockValue(name: string, type: string): any {
     let value: any;
@@ -191,30 +201,27 @@ export class TypeMocker {
     return getFallbackValue(type);
   }
 
-
-
   private mockProperty(prop: PropertySpec, name: string = ""): any {
     const { metadata, type } = prop;
+    const f = this.fk;
 
-    // Handle nullable fields: randomly return null (50% chance), otherwise generate value
     if (metadata && metadata.nullable === "true") {
       if (Math.random() < 0.5) return null;
     }
 
-    // If enum metadata is present, always prefer it (works for both TS and Zod enums)
     if (metadata && Array.isArray((metadata as any).enum)) {
-      return faker.helpers.arrayElement((metadata as any).enum as any[]);
+      return f.helpers.arrayElement((metadata as any).enum as any[]);
     }
 
     if (Array.isArray(type)) {
-      // Enum: array of primitives (e.g. ["active", "inactive", "pending"])
-      if (type.length > 1 && type.every((t) => typeof t === "string" || typeof t === "number" || typeof t === "boolean")) {
-        return faker.helpers.arrayElement(type as (string | number | boolean)[]);
+      if (
+        type.length > 1 &&
+        type.every((t) => typeof t === "string" || typeof t === "number" || typeof t === "boolean")
+      ) {
+        return f.helpers.arrayElement(type as (string | number | boolean)[]);
       }
       if (type.length === 1) {
-        // It's an array type (e.g. ["string"])
         let count = 1;
-        // Prefer metadata.length, then @voro.length, then minLength/maxLength, then fallback
         if (metadata.length !== undefined) {
           count = Number(metadata.length);
         } else if (metadata["@voro.length"] !== undefined) {
@@ -222,24 +229,31 @@ export class TypeMocker {
         } else if (metadata.minLength || metadata.maxLength) {
           const min = metadata.minLength ? Number(metadata.minLength) : 1;
           const max = metadata.maxLength ? Number(metadata.maxLength) : 5;
-          count = faker.number.int({ min, max });
+          count = f.number.int({ min, max });
         } else {
-          count = resolveArrayLength(undefined);
+          count = resolveArrayLength(undefined, f);
         }
         return Array.from({ length: count }, () => {
           const propType: PropertySpec =
             typeof type[0] === "string"
               ? { type: type[0], optional: false, metadata: {} }
-              : type[0]; // if it's already PropertySpec
+              : type[0];
           return this.mockProperty(propType, name);
         });
       }
-      // Use shared union/nullable resolver
-      return resolveUnionOrNullable(type, name, metadata, (p, n) => this.mockProperty(p, n));
+      return resolveUnionOrNullable(type, name, metadata, (p, n) => this.mockProperty(p, n), f);
     }
 
-    // Handle nested objects
     if (typeof type === "object" && type !== null) {
+      const nestedLocale =
+        typeof metadata.locale === "string" ? metadata.locale.trim() : "";
+      if (nestedLocale) {
+        return new TypeMocker(
+          type as Record<string, PropertySpec>,
+          this.seed,
+          nestedLocale
+        ).mock();
+      }
       const result: Record<string, unknown> = {};
       for (const key in type) {
         const value = type[key as keyof typeof type];
@@ -248,12 +262,9 @@ export class TypeMocker {
       return result;
     }
 
-    // Use metadata first
     const metaVal = this.mockFromMetadata(type, metadata, name);
     if (metaVal !== undefined) return metaVal;
 
-    // Defensive: warn only for truly unknown types.
-    // Empty metadata is normal for enums, booleans, functions, etc.
     if (type === "unknown") {
       // eslint-disable-next-line no-console
       console.warn(`[voro] Warning: mockProperty received unknown type for field '${name}'.`);
@@ -261,5 +272,4 @@ export class TypeMocker {
 
     return this.getDefaultMockValue(name, type);
   }
-
-  }
+}

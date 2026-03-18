@@ -103,7 +103,7 @@ export const createSchemaHandlers = async (bundles: SchemaBundle[], seed?: strin
       schemaName: bundle.name,
       generator: (id?: string | number) => {
         const seedToUse = id !== undefined ? getSeedForId(seed, id) : seed;
-        const mocker = new TypeMocker(bundle.schema, seedToUse);
+        const mocker = new TypeMocker(bundle.schema, seedToUse, bundle.fakerLocale);
         if (zodSchema) {
           return generateValidMock(mocker, zodSchema, bundle.name);
         } else {

@@ -17,10 +17,15 @@ import { ZodParser } from "./utils/zodParser.js";
  */
 export function generateMock<T>(
   schema: z.ZodType<T>,
-  seed?: string | number
+  seed?: string | number,
+  /** Overrides root schema `@voro.locale` when set */
+  fakerLocale?: string
 ): T {
   const parser = new ZodParser("");
   const propertySpec = parser.extractProperties(schema as any);
-  const mocker = new TypeMocker(propertySpec, seed);
+  const locale =
+    fakerLocale?.trim() ||
+    parser.getFakerLocaleFromSchema(schema as unknown as z.ZodObject<any>);
+  const mocker = new TypeMocker(propertySpec, seed, locale);
   return mocker.mock() as T;
 }

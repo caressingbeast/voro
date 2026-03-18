@@ -22,10 +22,14 @@ export type SchemaBundle = {
   kind: SchemaKind;
   // The source file where it was found
   filePath: string;
+  /** Faker locale from root Zod `.describe("@voro.locale …")`; default en_US */
+  fakerLocale?: string;
 };
 
-const parseZodFile = async (filePath: string): Promise<Record<string, Record<string, PropertySpec>>> => {
-  const result: Record<string, Record<string, PropertySpec>> = {};
+const parseZodFile = async (
+  filePath: string
+): Promise<Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }>> => {
+  const result: Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }> = {};
   const absPath = path.resolve(filePath);
   const fileUrl = pathToFileURL(absPath).href;
 
@@ -42,8 +46,8 @@ const parseZodFile = async (filePath: string): Promise<Record<string, Record<str
       zodDef
     ) {
       try {
-        const schema = await parser.parse(exportName);
-        result[exportName] = schema;
+        const { schema, fakerLocale } = await parser.parse(exportName);
+        result[exportName] = { schema, fakerLocale };
       } catch (err) {
         // ignore exports that are not Zod schemas
       }
@@ -101,7 +105,7 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   const bundles: SchemaBundle[] = [];
 
   // Try Zod parsing (runtime import)
-  let zodSchemas: Record<string, Record<string, PropertySpec>> = {};
+  let zodSchemas: Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }> = {};
   if ([".ts", ".tsx", ".js", ".mjs", ".cjs"].includes(ext)) {
     try {
       zodSchemas = await parseZodFile(absPath);
@@ -133,7 +137,14 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   // Add Zod schemas first
   for (const name of Object.keys(zodSchemas)) {
     const endpoint = getEndpointName(name);
-    endpointMap.set(endpoint, { name, schema: zodSchemas[name], kind: "zod", filePath: absPath });
+    const z = zodSchemas[name];
+    endpointMap.set(endpoint, {
+      name,
+      schema: z.schema,
+      kind: "zod",
+      filePath: absPath,
+      fakerLocale: z.fakerLocale,
+    });
   }
 
   // Add TS schemas, warn if both Zod and TS exist for the same endpoint

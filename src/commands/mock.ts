@@ -43,7 +43,7 @@ export async function runMock(options: RunMockOptions): Promise<RunMockResult> {
       throw new Error(`${kind === "zod" ? "Schema" : "Type"} ${name} not found`);
     }
 
-    const mock = new TypeMocker(schemaBundle.schema, options.seed).mock();
+    const mock = new TypeMocker(schemaBundle.schema, options.seed, schemaBundle.fakerLocale).mock();
     const mockData = JSON.stringify(mock, null, 2);
 
     if (options.output) {

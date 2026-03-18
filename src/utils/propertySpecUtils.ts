@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { faker } from "@faker-js/faker";
+import { allFakers, type Faker } from "@faker-js/faker";
 
 import type { PropertySpec, VoroMetadata } from "../types";
 
@@ -52,7 +52,8 @@ export function resolveUnionOrNullable(
   type: any[],
   name: string,
   metadata: VoroMetadata,
-  mockProperty: (prop: PropertySpec, name: string) => any
+  mockProperty: (prop: PropertySpec, name: string) => any,
+  fk: Faker = allFakers.en_US
 ): any {
   const hasNull = type.includes("null");
   const nonNullTypes = type.filter((t) => t !== "null");
@@ -68,7 +69,7 @@ export function resolveUnionOrNullable(
         return mockProperty(t, name);
       }
     }
-    const t = faker.helpers.arrayElement(nonNullTypes);
+    const t = fk.helpers.arrayElement(nonNullTypes);
     if (typeof t === "string") {
       return mockProperty({ type: t, optional: false, metadata: {} }, name);
     }
@@ -86,7 +87,7 @@ export function resolveUnionOrNullable(
     );
   }
 
-  const t = faker.helpers.arrayElement(type as string[]);
+  const t = fk.helpers.arrayElement(type as string[]);
   if (typeof t === "string") {
     return mockProperty({ type: t, optional: false, metadata: {} }, name);
   }
@@ -96,13 +97,13 @@ export function resolveUnionOrNullable(
   return t;
 }
 
-export function resolveArrayLength(input: unknown): number {
+export function resolveArrayLength(input: unknown, fk: Faker = allFakers.en_US): number {
   if (typeof input === "number") return input;
   if (typeof input === "string") {
     const num = parseInt(input, 10);
     if (!isNaN(num)) return num;
   }
-  return faker.number.int({ min: 1, max: 5 });
+  return fk.number.int({ min: 1, max: 5 });
 }
 
 // --- Field name → generator hint ---

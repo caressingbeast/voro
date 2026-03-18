@@ -4,7 +4,7 @@ const Address = z.object({
   address1: z.string(),
   address2: z.string().optional(),
   city: z.string(),
-  state: z.string().describe(`@voro.value "Arizona"`),
+  state: z.string(),
   zip: z.string(),
   country: z.string()
 });

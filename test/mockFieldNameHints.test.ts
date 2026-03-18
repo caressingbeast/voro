@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { z } from "zod/v4";
 
 import { TypeMocker } from "../src/utils/mock";
+import { ZodParser } from "../src/utils/zodParser";
 
 /** Fixed seed so faker output is stable enough for shape assertions */
 const SEED = 42_4242;
@@ -28,9 +30,28 @@ describe("TypeMocker field-name hints (getKeyFromName → faker)", () => {
     };
     const m = new TypeMocker(schema, SEED).mock();
     expect(m.city.length).toBeGreaterThan(2);
-    expect(m.country.length).toBeGreaterThan(2);
+    expect(m.country).toBe("United States");
     expect(m.state.length).toBeGreaterThan(1);
     expect(m.zip.length).toBeGreaterThan(2);
+  });
+
+  test("nested z.object .describe(@voro.locale) applies to that object’s mocks", () => {
+    const schema = z.object({
+      address: z
+        .object({ country: z.string(), city: z.string() })
+        .describe("@voro.locale en_GB"),
+    });
+    const spec = new ZodParser("").extractProperties(schema as any);
+    const m = new TypeMocker(spec, SEED).mock();
+    expect((m as any).address.country).toBe("United Kingdom");
+  });
+
+  test("country field matches @voro.locale primary country", () => {
+    const schema = {
+      country: { type: "string" as const, optional: false, metadata: {} },
+    };
+    expect(new TypeMocker(schema, SEED).mock().country).toBe("United States");
+    expect(new TypeMocker(schema, SEED, "de").mock().country).toBe("Germany");
   });
 
   test("email and url fields", () => {

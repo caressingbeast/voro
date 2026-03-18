@@ -22,7 +22,8 @@ describe("ZodParser", () => {
 
     test("parses a basic type", async () => {
       const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("BasicUserSchema");
+      const { schema: mocks, fakerLocale } = await parser.parse("BasicUserSchema");
+      expect(fakerLocale).toBe("en_US");
 
       expect(mocks.id.type).toEqual("string");
       expect(mocks.age.type).toEqual("number");
@@ -38,7 +39,7 @@ describe("ZodParser", () => {
 
     test("parses metadata", async () => {
       const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("MetadataUserSchema");
+      const { schema: mocks } = await parser.parse("MetadataUserSchema");
 
       expect(mocks.id.metadata.format).toEqual("uuid");
       expect(mocks.age.metadata.range).toEqual({ min: 18, max: 30 });
@@ -49,7 +50,7 @@ describe("ZodParser", () => {
 
     test("parses nested types", async () => {
       const parser = new ZodParser(testFile);
-      const mocks = await parser.parse("NestedUserSchema");
+      const { schema: mocks } = await parser.parse("NestedUserSchema");
 
       const address = mocks.address.type as Record<string, PropertySpec>;
       expect(typeof address).toEqual("object");
@@ -58,6 +59,12 @@ describe("ZodParser", () => {
       expect(typeof address.state.type).toEqual("string");
       expect(typeof address.zip.type).toEqual("string");
       expect(typeof address.country.type).toEqual("string");
+    });
+
+    test("reads @voro.locale from root z.object describe", async () => {
+      const parser = new ZodParser(testFile);
+      const { fakerLocale } = await parser.parse("GermanUserSchema");
+      expect(fakerLocale).toBe("de");
     });
   });
 });

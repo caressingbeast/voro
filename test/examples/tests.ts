@@ -72,3 +72,11 @@ export const NestedUserSchema = z.object({
   address: AddressSchema,
   name: z.string()
 });
+
+/** Locale from root object describe (Faker de_DE-style data). */
+export const GermanUserSchema = z
+  .object({
+    city: z.string(),
+    firstName: z.string(),
+  })
+  .describe("@voro.locale de");

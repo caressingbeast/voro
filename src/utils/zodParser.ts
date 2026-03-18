@@ -4,6 +4,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import { z, ZodObject, ZodTypeAny } from "zod";
 import type { PropertySpec, VoroMetadata } from "../types";
+import { resolveFakerLocaleKey } from "./fakerLocale.js";
 import {
   getZodArrayElementSchema,
   getZodDef,
@@ -21,7 +22,9 @@ export class ZodParser {
 
   constructor(private filePath: string) {}
 
-  async parse(schemaName: string): Promise<Record<string, PropertySpec>> {
+  async parse(
+    schemaName: string
+  ): Promise<{ schema: Record<string, PropertySpec>; fakerLocale: string }> {
     const absPath = path.resolve(this.filePath);
 
     if (!fs.existsSync(absPath)) {
@@ -57,7 +60,20 @@ export class ZodParser {
       throw new Error(`Schema ${schemaName} is not valid Zod schema`);
     }
 
-    return this.extractProperties(schema);
+    return {
+      schema: this.extractProperties(schema),
+      fakerLocale: this.getFakerLocaleFromSchema(schema),
+    };
+  }
+
+  /** Root `z.object(...).describe("@voro.locale de")` — defaults to en_US. */
+  getFakerLocaleFromSchema(schema: ZodObject<any>): string {
+    const meta = this.extractVoroMetadata(getZodDescription(schema));
+    const v = meta.locale;
+    if (typeof v === "string" && v.trim()) {
+      return resolveFakerLocaleKey(v);
+    }
+    return "en_US";
   }
 
   // Note: kept public-ish semantics for tests (they access it via ts-ignore)
@@ -148,7 +164,8 @@ export class ZodParser {
 
   private parseObjectField(baseType: any, optional: boolean, metadata: Record<string, any>): PropertySpec {
     const shape = this.extractProperties(baseType as ZodObject<any>);
-    return { type: shape, optional, metadata };
+    const fromNestedObject = this.extractVoroMetadata(getZodDescription(baseType));
+    return { type: shape, optional, metadata: { ...metadata, ...fromNestedObject } };
   }
 
   private parseEnumField(values: string[], optional: boolean): PropertySpec {
