@@ -25,6 +25,7 @@ export interface MetadataUser {
   createdAt: string;
 }
 
+/** @voro.locale en_GB */
 interface Address {
   address1: string;
   city: string;
@@ -74,6 +75,12 @@ export const NestedUserSchema = z.object({
 });
 
 /** Locale from root object describe (Faker de_DE-style data). */
+/** @voro.locale de */
+export interface TsLocaleRootUser {
+  id: string;
+  name: string;
+}
+
 export const GermanUserSchema = z
   .object({
     city: z.string(),

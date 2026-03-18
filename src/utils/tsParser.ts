@@ -19,7 +19,7 @@ export class TypeParser {
     this.program = ts.createProgram([this.resolvedPath], parsed.options);
   }
 
-  public parse(typeName: string): Record<string, PropertySpec> {
+  public parse(typeName: string): { schema: Record<string, PropertySpec>; fakerLocale: string } {
     const source = this.getSource();
     if (!source) throw new Error(`${this.resolvedPath} not found`);
 
@@ -33,6 +33,12 @@ export class TypeParser {
 
     if (!targetNode) throw new Error(`Type ${typeName} not found`);
 
+    const rootMeta = this.extractDeclarationVoroMetadata(targetNode);
+    const fakerLocale =
+      typeof rootMeta.locale === "string" && rootMeta.locale.trim()
+        ? rootMeta.locale.trim()
+        : "en_US";
+
     const members =
       ts.isInterfaceDeclaration(targetNode) && targetNode.members
         ? targetNode.members
@@ -41,7 +47,8 @@ export class TypeParser {
           ? targetNode.type.members
           : ([] as unknown as ts.NodeArray<ts.TypeElement>);
 
-    return this.extractProperties(members, new Set(), source);
+    const schema = this.extractProperties(members, new Set(), source);
+    return { schema, fakerLocale };
   }
 
   private extractProperties(
@@ -57,6 +64,10 @@ export class TypeParser {
         const optional = !!member.questionToken;
         let metadata = this.extractVoroMetadata(member, source);
         const type = this.extractTypeNode(member.type, visited, source);
+        const refLocale = this.extractLocaleFromReferencedType(member.type, source);
+        if (refLocale && !metadata.locale) {
+          metadata = { ...metadata, locale: refLocale };
+        }
 
         // Detect nullable: union containing null
         let isNullable = false;
@@ -184,19 +195,31 @@ export class TypeParser {
   }
 
   private extractVoroMetadata(member: ts.PropertySignature, source?: ts.SourceFile): VoroMetadata {
-    const metadata: VoroMetadata = {};
     let tags = ts.getJSDocTags(member);
     const memberWithJSDoc = member as { jsDoc?: Array<{ tags?: ts.JSDocTag[] }> };
     if (tags.length === 0 && memberWithJSDoc.jsDoc) {
       tags = memberWithJSDoc.jsDoc.flatMap((d) => d.tags ?? []);
     }
+    return this.parseVoroJSDocTags(tags, source ?? member.getSourceFile());
+  }
 
+  /** @voro.* on an interface or type alias (e.g. root locale or Address block). */
+  private extractDeclarationVoroMetadata(node: ts.InterfaceDeclaration | ts.TypeAliasDeclaration): VoroMetadata {
+    let tags = ts.getJSDocTags(node);
+    const withJsDoc = node as { jsDoc?: Array<{ tags?: ts.JSDocTag[] }> };
+    if (tags.length === 0 && withJsDoc.jsDoc) {
+      tags = withJsDoc.jsDoc.flatMap((d) => d.tags ?? []);
+    }
+    return this.parseVoroJSDocTags(tags, node.getSourceFile());
+  }
+
+  private parseVoroJSDocTags(tags: readonly ts.JSDocTag[], _source: ts.SourceFile): VoroMetadata {
+    const metadata: VoroMetadata = {};
     for (const tag of tags) {
-      const src = source ?? (member as ts.Node).getSourceFile?.();
-      const tagText = (src ? tag.tagName.getText(src) : tag.tagName.getText()).trim();
+      if (!tag.tagName || !ts.isIdentifier(tag.tagName)) continue;
+      const tagText = tag.tagName.escapedText.toString();
       const rawComment = this.getTagCommentText(tag.comment).trim();
 
-      // Support both @voro key value and @voro.key value
       let key: string | undefined;
       let value: string;
 
@@ -222,8 +245,34 @@ export class TypeParser {
         metadata[key] = value;
       }
     }
-
     return metadata;
+  }
+
+  /** Inherit @voro.locale from a referenced interface / type alias (nested object). */
+  private extractLocaleFromReferencedType(typeNode: ts.TypeNode, source?: ts.SourceFile): string | undefined {
+    const src = source ?? typeNode.getSourceFile();
+    let node: ts.TypeNode = typeNode;
+    if (ts.isTypeReferenceNode(node)) {
+      const typeName = node.typeName.getText(src).trim();
+      if (typeName === "Partial" && node.typeArguments?.[0]) {
+        return this.extractLocaleFromReferencedType(node.typeArguments[0], src);
+      }
+      if (
+        typeName === "Record" ||
+        typeName === "Pick" ||
+        typeName === "Omit" ||
+        typeName === "Required" ||
+        typeName === "Readonly"
+      ) {
+        return undefined;
+      }
+      const decl = this.findTypeDeclaration(typeName);
+      if (decl && (ts.isInterfaceDeclaration(decl) || ts.isTypeAliasDeclaration(decl))) {
+        const m = this.extractDeclarationVoroMetadata(decl);
+        if (typeof m.locale === "string" && m.locale.trim()) return m.locale.trim();
+      }
+    }
+    return undefined;
   }
 
 

@@ -57,7 +57,7 @@ describe("PropertySpec extraction (Zod/TS)", () => {
 
   it("extracts all constraints from TS schema", () => {
     const parser = new TypeParser(tsFile);
-    const props = parser.parse("MetadataUser");
+    const { schema: props } = parser.parse("MetadataUser");
     expect(props.id.metadata.format).toBe("uuid");
     expect(props.status.type).toEqual(["active", "inactive", "pending"]);
     expect(props.tags.metadata.length).toBe("3");

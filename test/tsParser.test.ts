@@ -20,7 +20,8 @@ describe("TypeParser", () => {
 
     test("parses a basic type", () => {
       const parser = new TypeParser(testFile);
-      const mocks = parser.parse("BasicUser");
+      const { schema: mocks, fakerLocale } = parser.parse("BasicUser");
+      expect(fakerLocale).toBe("en_US");
 
       expect(mocks.id.type).toEqual("string");
       expect(mocks.age.type).toEqual("number");
@@ -32,7 +33,7 @@ describe("TypeParser", () => {
 
     test("parses metadata", () => {
       const parser = new TypeParser(testFile);
-      const mocks = parser.parse("MetadataUser");
+      const { schema: mocks } = parser.parse("MetadataUser");
 
       expect(mocks.id.metadata.format).toEqual("uuid");
       expect(mocks.age.metadata.range).toEqual({ min: 18, max: 30 });
@@ -43,7 +44,7 @@ describe("TypeParser", () => {
 
     test("parses nested types", () => {
       const parser = new TypeParser(testFile);
-      const mocks = parser.parse("NestedUser");
+      const { schema: mocks } = parser.parse("NestedUser");
 
       const address = mocks.address.type as Record<string, PropertySpec>;
       expect(typeof address).toEqual("object");
@@ -52,6 +53,13 @@ describe("TypeParser", () => {
       expect(typeof address.state.type).toEqual("string");
       expect(typeof address.zip.type).toEqual("string");
       expect(typeof address.country.type).toEqual("string");
+      expect(mocks.address.metadata.locale).toEqual("en_GB");
+    });
+
+    test("JSDoc @voro.locale on root interface sets fakerLocale", () => {
+      const parser = new TypeParser(testFile);
+      const { fakerLocale } = parser.parse("TsLocaleRootUser");
+      expect(fakerLocale).toBe("de");
     });
   });
 });

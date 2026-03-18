@@ -57,11 +57,13 @@ const parseZodFile = async (
   return result;
 };
 
-const parseTsFile = async (filePath: string): Promise<Record<string, Record<string, PropertySpec>>> => {
+const parseTsFile = async (
+  filePath: string
+): Promise<Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }>> => {
   const absPath = path.resolve(filePath);
   const typeNames = getExportedTypeNames(absPath);
 
-  const result: Record<string, Record<string, PropertySpec>> = {};
+  const result: Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }> = {};
   if (typeNames.length === 0) return result;
 
   const parser = new TypeParser(absPath);
@@ -115,7 +117,7 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
   }
 
   // TS type parsing
-  let tsSchemas: Record<string, Record<string, PropertySpec>> = {};
+  let tsSchemas: Record<string, { schema: Record<string, PropertySpec>; fakerLocale: string }> = {};
   if ([".ts", ".tsx"].includes(ext)) {
     try {
       tsSchemas = await parseTsFile(absPath);
@@ -162,7 +164,14 @@ export const loadSchemasFromFile = async (filePath: string): Promise<SchemaBundl
       continue;
     }
     if (!isZodInferAlias(name, absPath)) {
-      endpointMap.set(endpoint, { name, schema: tsSchemas[name], kind: "ts", filePath: absPath });
+      const t = tsSchemas[name];
+      endpointMap.set(endpoint, {
+        name,
+        schema: t.schema,
+        kind: "ts",
+        filePath: absPath,
+        fakerLocale: t.fakerLocale,
+      });
     }
   }
 
