@@ -108,6 +108,8 @@ Voro works differently:
   - hot reload
 - Auto-generated OpenAPI (Swagger) docs
 
+**Limitations:** Voro reads schema *shape* and `@voro.*` metadata only. It does not run or enforce Zod’s `refine`, `superRefine`, or `transform`; mocks are generated from the base types and may not satisfy those constraints. For validation of mock output, run your schema’s `.parse()` or `.safeParse()` yourself (the dev server does this when a Zod schema is available).
+
 ---
 
 ## Installation
